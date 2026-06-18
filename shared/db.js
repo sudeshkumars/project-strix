@@ -472,6 +472,28 @@ function migrate () {
     CREATE INDEX IF NOT EXISTS idx_reminders_fire      ON reminders(fired, remind_at);
     CREATE INDEX IF NOT EXISTS idx_invites_guild       ON invite_tracking(guild_id);
     CREATE INDEX IF NOT EXISTS idx_invites_inviter     ON invite_tracking(guild_id, inviter_id);
+
+    CREATE TABLE IF NOT EXISTS voice_roles (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      minutes  INTEGER NOT NULL,
+      role_id  TEXT NOT NULL,
+      UNIQUE(guild_id, minutes),
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_voice_roles_guild ON voice_roles(guild_id);
+
+    CREATE TABLE IF NOT EXISTS punishment_templates (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id   TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      actions    TEXT NOT NULL,
+      created_by TEXT,
+      created_at INTEGER,
+      UNIQUE(guild_id, name),
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_punish_templates_guild ON punishment_templates(guild_id);
   `)
 }
 
@@ -500,9 +522,9 @@ function deleteGuildData (guildId) {
   const tables = [
     'activity_stats','audit_log','automod_rules','bansync_guilds',
     'cases','custom_commands','giveaways','guild_config','highlights',
-    'invite_tracking','level_roles','reputation','role_panels','scheduled_messages',
-    'sticky_messages','suggestions','temp_punishments','temp_roles','temp_voice',
-    'tickets','users','warnings','afk_users'
+    'invite_tracking','level_roles','punishment_templates','reputation','role_panels',
+    'scheduled_messages','sticky_messages','suggestions','temp_punishments',
+    'temp_roles','temp_voice','tickets','users','voice_roles','warnings','afk_users'
   ]
   getDb().transaction(() => {
     for (const t of tables) getDb().prepare(`DELETE FROM ${t} WHERE guild_id = ?`).run(guildId)
@@ -1374,6 +1396,45 @@ function getInvitesByUser (guildId, inviterId) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// VOICE ROLES
+// ══════════════════════════════════════════════════════════════════
+
+function setVoiceRole (guildId, minutes, roleId) {
+  getDb().prepare('INSERT OR REPLACE INTO voice_roles (guild_id, minutes, role_id) VALUES (?,?,?)').run(guildId, minutes, roleId)
+}
+
+function getVoiceRoles (guildId) {
+  return getDb().prepare('SELECT * FROM voice_roles WHERE guild_id = ? ORDER BY minutes ASC').all(guildId)
+}
+
+function deleteVoiceRole (guildId, minutes) {
+  getDb().prepare('DELETE FROM voice_roles WHERE guild_id = ? AND minutes = ?').run(guildId, minutes)
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PUNISHMENT TEMPLATES
+// ══════════════════════════════════════════════════════════════════
+
+function createPunishTemplate (guildId, name, actions, createdBy) {
+  return getDb().prepare(`
+    INSERT INTO punishment_templates (guild_id, name, actions, created_by, created_at)
+    VALUES (?,?,?,?,?)
+  `).run(guildId, name, JSON.stringify(actions), createdBy, now()).lastInsertRowid
+}
+
+function getPunishTemplate (guildId, name) {
+  return getDb().prepare('SELECT * FROM punishment_templates WHERE guild_id = ? AND name = ?').get(guildId, name)
+}
+
+function getPunishTemplates (guildId) {
+  return getDb().prepare('SELECT * FROM punishment_templates WHERE guild_id = ? ORDER BY name ASC').all(guildId)
+}
+
+function deletePunishTemplate (guildId, name) {
+  getDb().prepare('DELETE FROM punishment_templates WHERE guild_id = ? AND name = ?').run(guildId, name)
+}
+
+// ══════════════════════════════════════════════════════════════════
 // EXPORTS
 // ══════════════════════════════════════════════════════════════════
 
@@ -1446,5 +1507,9 @@ module.exports = {
   // reminders
   createReminder, getExpiredReminders, markReminderFired, getUserReminders, deleteReminder,
   // invite tracking
-  trackInvite, getInviterStats, getInviteLeaderboard, markInviteLeft, getInvitesByUser
+  trackInvite, getInviterStats, getInviteLeaderboard, markInviteLeft, getInvitesByUser,
+  // voice roles
+  setVoiceRole, getVoiceRoles, deleteVoiceRole,
+  // punishment templates
+  createPunishTemplate, getPunishTemplate, getPunishTemplates, deletePunishTemplate
 }
