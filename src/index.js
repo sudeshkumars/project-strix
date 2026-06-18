@@ -17,7 +17,6 @@ const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js'
 
 const logger             = require('../shared/logger')
 const db                 = require('../shared/db')
-const { loadAllConfigs } = require('../shared/cache')
 
 const commandHandler     = require('./handlers/commandHandler')
 const eventHandler       = require('./handlers/eventHandler')
@@ -68,31 +67,6 @@ commandHandler(client)
 eventHandler(client)
 interactionHandler(client)
 taskHandler(client)
-
-// ─── Ready ────────────────────────────────────────────────────────────────────
-client.once('ready', async () => {
-  // Load guild configs into cache
-  loadAllConfigs(client)
-
-  // Clean dead webhooks
-  try {
-    const webhooks = db.getAllWebhooks()
-    for (const row of webhooks) {
-      try {
-        await fetch(row.webhook_url, { method: 'GET' })
-      } catch {
-        db.clearWebhook(row.guild_id)
-        logger.warn(`Cleared dead webhook for guild ${row.guild_id}`)
-      }
-    }
-  } catch (e) {
-    logger.warn('Webhook validation skipped:', e.message)
-  }
-
-  logger.info(
-    `✅ Stryx ready — ${client.guilds.cache.size} guilds, ${client.commands.size} commands, user: ${client.user.tag}`
-  )
-})
 
 // ─── Unhandled errors ─────────────────────────────────────────────────────────
 process.on('unhandledRejection', err => logger.error('Unhandled rejection:', err))

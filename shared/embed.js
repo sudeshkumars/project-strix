@@ -98,8 +98,8 @@ function modAction (opts) {
     .setColor(COLORS.mod)
     .setTitle(`🔨 ${action} — Case #${caseId}`)
     .addFields(
-      { name: 'User',   value: `${target.tag} (\`${target.id}\`)`, inline: true },
-      { name: 'Mod',    value: `${mod.tag} (\`${mod.id}\`)`,       inline: true },
+      { name: 'User',   value: `${target.username} (\`${target.id}\`)`, inline: true },
+      { name: 'Mod',    value: `${mod.username} (\`${mod.id}\`)`,       inline: true },
       { name: 'Reason', value: reason || 'No reason provided',      inline: false }
     )
     .setThumbnail(target.displayAvatarURL({ size: 64 }))

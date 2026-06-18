@@ -379,6 +379,15 @@ function migrate () {
       FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS xp_multipliers (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id   TEXT NOT NULL,
+      role_id    TEXT NOT NULL,
+      multiplier REAL DEFAULT 1.0,
+      UNIQUE(guild_id, role_id),
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cases_guild_user    ON cases(guild_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_warnings_guild_user ON warnings(guild_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_users_guild         ON users(guild_id);
@@ -390,6 +399,7 @@ function migrate () {
     CREATE INDEX IF NOT EXISTS idx_automod_guild       ON automod_rules(guild_id);
     CREATE INDEX IF NOT EXISTS idx_custom_cmds_guild   ON custom_commands(guild_id);
     CREATE INDEX IF NOT EXISTS idx_highlights_guild    ON highlights(guild_id);
+    CREATE INDEX IF NOT EXISTS idx_xp_multi_guild      ON xp_multipliers(guild_id);
   `)
 }
 
@@ -440,12 +450,30 @@ function getGuildConfig (guildId) {
   return getDb().prepare('SELECT * FROM guild_config WHERE guild_id = ?').get(guildId)
 }
 
+const VALID_CONFIG_COLUMNS = [
+  'mod_roles', 'admin_roles', 'mute_role', 'verify_role',
+  'log_channel', 'mod_channel', 'welcome_channel', 'goodbye_channel',
+  'suggestions_channel', 'starboard_channel', 'updates_channel_id',
+  'log_routes', 'log_ignore_roles', 'log_ignore_channels',
+  'welcome_style', 'welcome_message', 'welcome_color', 'welcome_bg_url',
+  'welcome_dm', 'welcome_dm_message', 'welcome_autorole',
+  'welcome_show_avatar', 'goodbye_message',
+  'warn_threshold', 'warn_decay_days', 'dm_on_action', 'appeal_channel', 'case_channel',
+  'xp_min', 'xp_max', 'xp_cooldown', 'levelup_channel', 'levelup_message',
+  'xp_blacklist', 'xp_multipliers',
+  'star_threshold', 'star_emoji',
+  'ticket_category', 'ticket_support_role', 'ticket_auto_close',
+  'webhook_id', 'webhook_url',
+  'modules', 'setup_complete', 'api_enabled', 'api_key'
+]
+
 function updateGuildConfig (guildId, fields) {
-  const keys = Object.keys(fields)
+  const keys = Object.keys(fields).filter(k => VALID_CONFIG_COLUMNS.includes(k))
   if (!keys.length) return
   const set = keys.map(k => `${k} = ?`).join(', ')
+  const values = keys.map(k => fields[k])
   getDb().prepare(`UPDATE guild_config SET ${set} WHERE guild_id = ?`)
-    .run(...Object.values(fields), guildId)
+    .run(...values, guildId)
 }
 
 function getAllWebhooks () {

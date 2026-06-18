@@ -9,7 +9,7 @@ module.exports = {
   name: 'guildCreate',
   once: false,
   async execute (client, guild) {
-    logger.guildEvent('join', guild.id, guild.name, guild.memberCount)
+    logger.info(`[GUILD JOIN] ${guild.name} (${guild.id}) — ${guild.memberCount} members`)
 
     // Provision DB rows
     db.createGuild(guild.id, guild.ownerId)

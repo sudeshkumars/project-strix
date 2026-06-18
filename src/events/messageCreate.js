@@ -6,6 +6,7 @@ const logger             = require('../../shared/logger')
 const { handleXp }          = require('./xpHandler')
 const { checkHighlights }   = require('./highlightWatcher')
 const db                    = require('../../shared/db')
+const automodEvent          = require('./automod/automodEngine')
 
 module.exports = {
   name: 'messageCreate',
@@ -18,7 +19,6 @@ module.exports = {
     const prefix = config?.prefix ?? '!'
 
     // ── Automod (runs regardless of prefix) ──────────────────────────────────
-    const automodEvent = require('./automod/automodEngine')
     await automodEvent.execute(client, message, config).catch(() => {})
 
     // ── XP grant ──────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ module.exports = {
     await checkHighlights(client, message).catch(() => {})
 
     // ── Auto-responses ────────────────────────────────────────────────────────
-    checkAutoResponses(client, message, guildId).catch(() => {})
+    checkAutoResponses(client, message, message.guild.id).catch(() => {})
 
     // ── Prefix command check ──────────────────────────────────────────────────
     if (!message.content.startsWith(prefix)) return
@@ -66,7 +66,7 @@ module.exports = {
 async function checkAutoResponses (client, message, guildId) {
   const rows = db.getDb().prepare(`
     SELECT * FROM custom_commands
-    WHERE guild_id = ? AND type = 'autoresponse' AND cooldown != 1
+    WHERE guild_id = ? AND type = 'autoresponse'
   `).all(guildId)
   if (!rows.length) return
 

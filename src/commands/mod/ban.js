@@ -99,7 +99,7 @@ module.exports = {
       if (ch) await safeSend(ch, { embeds: [embed] })
     }
 
-    logger.modAction('ban', target.id, interaction.user.id, guild.id, reason)
+    logger.info(`[MOD] ban: ${target.id} by ${interaction.user.id} in ${guild.id} — ${reason}`)
     await interaction.editReply({ embeds: [embed] })
   }
 }

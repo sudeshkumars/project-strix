@@ -6,7 +6,6 @@ const { safeSend, resolveWelcomeVars } = require('../../shared/utils')
 const { sendLog }          = require('../../shared/logRouter')
 const { EmbedBuilder }     = require('discord.js')
 const { COLORS }           = require('../../shared/embed')
-const { sendWelcome }      = require('../commands/community/welcome')
 
 module.exports = {
   name: 'guildMemberAdd',
@@ -25,15 +24,35 @@ module.exports = {
 
     // ── Welcome message ───────────────────────────────────────────────────────
     if (config?.welcome_channel) {
-      await sendWelcome(client, member, config, null)
+      const channel = member.guild.channels.cache.get(config.welcome_channel)
+      if (channel) {
+        const text = resolveWelcomeVars(
+          config.welcome_message ?? 'Welcome {user} to {server}!',
+          member
+        )
+
+        if (config.welcome_style === 'embed') {
+          const color = config.welcome_color
+            ? parseInt(config.welcome_color.replace('#', ''), 16)
+            : COLORS.info
+          const embed = new EmbedBuilder()
+            .setColor(color)
+            .setDescription(text)
+            .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
+            .setTimestamp()
+          await safeSend(channel, { embeds: [embed] })
+        } else {
+          await safeSend(channel, { content: text })
+        }
+      }
     }
 
     // ── Join log ──────────────────────────────────────────────────────────────
     const joinEmbed = new EmbedBuilder()
       .setColor(COLORS.success)
-      .setTitle('📥 Member Joined')
+      .setTitle('Member Joined')
       .addFields(
-        { name: 'User',         value: `${member.user.tag} (\`${member.id}\`)`, inline: true },
+        { name: 'User',         value: `${member.user.username} (\`${member.id}\`)`, inline: true },
         { name: 'Account Age',  value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
         { name: 'Member Count', value: String(member.guild.memberCount), inline: true }
       )
