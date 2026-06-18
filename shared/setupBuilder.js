@@ -129,27 +129,32 @@ function buildRows (buttons) {
 /**
  * Guard: reject button presses from users who don't own the session.
  * Returns true if blocked (caller should return early).
+ *
+ * Safe to call whether or not the interaction has been deferred/replied already.
  */
 async function guardSession (interaction, module) {
   const userId  = interaction.user.id
   const guildId = interaction.guild.id
   const session = getSession(userId, guildId, module)
 
+  // Helper: reply or followUp depending on interaction state
+  const respond = (content) => {
+    const payload = { content, flags: MessageFlags.Ephemeral }
+    if (interaction.replied || interaction.deferred) {
+      return interaction.followUp(payload)
+    }
+    return interaction.reply(payload)
+  }
+
   if (!session) {
-    await interaction.reply({
-      content: 'This setup session has expired. Run the setup command again.',
-      flags: MessageFlags.Ephemeral
-    })
+    await respond('This setup session has expired. Run the setup command again.')
     return true
   }
 
   // Ensure only the owner of this session can press buttons
   const [ownerId] = interaction.customId.split(':').slice(-2)
   if (ownerId && ownerId !== userId) {
-    await interaction.reply({
-      content: 'This setup panel belongs to another user.',
-      flags: MessageFlags.Ephemeral
-    })
+    await respond('This setup panel belongs to another user.')
     return true
   }
 
