@@ -2,7 +2,8 @@
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db                    = require('../../../shared/db')
-const { modAction, modDm }  = require('../../../shared/embed')
+const { modCard, errorCard } = require('../../../shared/components')
+const { modDm }             = require('../../../shared/embed')
 const { safeSend }          = require('../../../shared/utils')
 
 module.exports = {
@@ -31,22 +32,16 @@ module.exports = {
     try { member = await guild.members.fetch(target.id) } catch {}
 
     if (member) {
-      if (!member.bannable) {
-        return interaction.editReply({ content: '❌ I cannot ban that member (role hierarchy).' })
-      }
-      if (member.id === interaction.user.id) {
-        return interaction.editReply({ content: '❌ You cannot softban yourself.' })
-      }
+      if (!member.bannable) return interaction.editReply(errorCard('Cannot Ban', ['I cannot ban that member (role hierarchy).']))
+      if (member.id === interaction.user.id) return interaction.editReply(errorCard('Invalid', ['You cannot softban yourself.']))
     }
 
-    // DM before action (they're not getting perma-banned, so keep message accurate)
     if (config?.dm_on_action && member) {
       await safeSend(target, {
         embeds: [modDm({ action: 'Softban', guildName: guild.name, reason })]
       })
     }
 
-    // Ban → unban
     try {
       await guild.members.ban(target.id, {
         reason: `[Stryx Softban] ${reason} | Mod: ${interaction.user.tag}`,
@@ -54,24 +49,23 @@ module.exports = {
       })
       await guild.members.unban(target.id, '[Stryx Softban] Auto-unban after softban')
     } catch (e) {
-      return interaction.editReply({ content: `❌ Failed to softban: ${e.message}` })
+      return interaction.editReply(errorCard('Softban Failed', [e.message]))
     }
 
     const caseId = db.createCase(guild.id, target.id, interaction.user.id, 'softban', reason)
+    const lines = [
+      `**User** \u2014 ${target.username} (\`${target.id}\`)`,
+      `**Mod** \u2014 ${interaction.user.username} (\`${interaction.user.id}\`)`,
+      `**Reason** \u2014 ${reason}`
+    ]
 
-    const embed = modAction({
-      action: 'Softban',
-      target,
-      mod:    interaction.user,
-      reason,
-      caseId
-    })
+    const payload = modCard(`\u{1f528} Softban \u2014 Case #${caseId}`, lines)
 
     if (config?.case_channel) {
       const ch = guild.channels.cache.get(config.case_channel)
-      if (ch) await safeSend(ch, { embeds: [embed] })
+      if (ch) await safeSend(ch, payload)
     }
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(payload)
   }
 }

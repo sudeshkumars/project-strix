@@ -1,9 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const db          = require('../../../shared/db')
-const { info, success, error } = require('../../../shared/embed')
-const { relativeTime, fullTime } = require('../../../shared/utils')
+const db                                           = require('../../../shared/db')
+const { infoCard, successCard, errorCard, capList } = require('../../../shared/components')
+const { relativeTime, fullTime }                   = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'mod',
@@ -37,33 +37,32 @@ module.exports = {
     if (sub === 'view') {
       const caseId  = interaction.options.getInteger('id')
       const caseRow = db.getCase(caseId, guildId)
-      if (!caseRow) return interaction.editReply({ embeds: [error('Not found', `Case #${caseId} not found.`)] })
+      if (!caseRow) return interaction.editReply(errorCard('Not found', [`Case #${caseId} not found.`]))
 
-      const embed = info(`📋 Case #${caseId}`, null)
-        .addFields(
-          { name: 'Type',    value: caseRow.type,   inline: true },
-          { name: 'Active',  value: caseRow.active ? 'Yes' : 'No', inline: true },
-          { name: 'User',    value: `<@${caseRow.user_id}>`, inline: true },
-          { name: 'Mod',     value: `<@${caseRow.mod_id}>`,  inline: true },
-          { name: 'Created', value: fullTime(caseRow.created_at), inline: true },
-          { name: 'Reason',  value: caseRow.reason ?? 'None', inline: false }
-        )
+      const lines = [
+        `**Type** \u2014 ${caseRow.type}`,
+        `**Active** \u2014 ${caseRow.active ? 'Yes' : 'No'}`,
+        `**User** \u2014 <@${caseRow.user_id}>`,
+        `**Mod** \u2014 <@${caseRow.mod_id}>`,
+        `**Created** \u2014 ${fullTime(caseRow.created_at)}`,
+        `**Reason** \u2014 ${caseRow.reason ?? 'None'}`
+      ]
 
       if (caseRow.expires_at) {
-        embed.addFields({ name: 'Expires', value: relativeTime(caseRow.expires_at), inline: true })
+        lines.push(`**Expires** \u2014 ${relativeTime(caseRow.expires_at)}`)
       }
 
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(infoCard(`\u{1f4cb} Case #${caseId}`, lines))
     }
 
     if (sub === 'reason') {
       const caseId = interaction.options.getInteger('id')
       const reason = interaction.options.getString('reason')
       const row    = db.getCase(caseId, guildId)
-      if (!row) return interaction.editReply({ embeds: [error('Not found', `Case #${caseId} not found.`)] })
+      if (!row) return interaction.editReply(errorCard('Not found', [`Case #${caseId} not found.`]))
 
       db.updateCaseReason(caseId, guildId, reason)
-      return interaction.editReply({ embeds: [success('Case Updated', `Case **#${caseId}** reason updated.`)] })
+      return interaction.editReply(successCard('Case Updated', [`Case **#${caseId}** reason updated.`]))
     }
 
     if (sub === 'history') {
@@ -74,21 +73,16 @@ module.exports = {
       const total  = db.getCaseCount(guildId, target.id).count
 
       if (!cases.length) {
-        return interaction.editReply({ content: `No cases found for **${target.tag}**.` })
+        return interaction.editReply(infoCard(`\u{1f4cb} Cases \u2014 ${target.tag}`, ['No cases found.']))
       }
 
-      const embed = info(`📋 Cases — ${target.tag}`, null)
-        .setFooter({ text: `Page ${page + 1} • Total: ${total}` })
+      const lines = cases.map(c =>
+        `**#${c.case_id}** \u2014 ${c.type.toUpperCase()} \u2014 ${relativeTime(c.created_at)}\n> Reason: ${c.reason ?? 'None'} | Mod: <@${c.mod_id}>`
+      )
 
-      for (const c of cases) {
-        embed.addFields({
-          name:  `#${c.case_id} — ${c.type.toUpperCase()} — ${relativeTime(c.created_at)}`,
-          value: `**Reason:** ${c.reason ?? 'None'} | **Mod:** <@${c.mod_id}>`,
-          inline: false
-        })
-      }
-
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(infoCard(`\u{1f4cb} Cases \u2014 ${target.tag}`, lines, {
+        subtext: `Page ${page + 1} \u2022 Total: ${total}`
+      }))
     }
   }
 }

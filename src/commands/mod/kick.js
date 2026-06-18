@@ -1,9 +1,10 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const db                   = require('../../../shared/db')
-const { modAction, modDm } = require('../../../shared/embed')
-const { safeSend }         = require('../../../shared/utils')
+const db                    = require('../../../shared/db')
+const { modCard, errorCard } = require('../../../shared/components')
+const { modDm }             = require('../../../shared/embed')
+const { safeSend }          = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'mod',
@@ -27,11 +28,11 @@ module.exports = {
 
     let member
     try { member = await guild.members.fetch(target.id) } catch {
-      return interaction.editReply({ content: '❌ Member not found in this server.' })
+      return interaction.editReply(errorCard('Not Found', ['Member not found in this server.']))
     }
 
-    if (!member.kickable) return interaction.editReply({ content: '❌ I cannot kick that member.' })
-    if (member.id === interaction.user.id) return interaction.editReply({ content: '❌ You cannot kick yourself.' })
+    if (!member.kickable) return interaction.editReply(errorCard('Cannot Kick', ['I cannot kick that member.']))
+    if (member.id === interaction.user.id) return interaction.editReply(errorCard('Invalid', ['You cannot kick yourself.']))
 
     if (config?.dm_on_action) {
       await safeSend(target, {
@@ -42,17 +43,23 @@ module.exports = {
     try {
       await member.kick(`[Stryx] ${reason} | Mod: ${interaction.user.tag}`)
     } catch (e) {
-      return interaction.editReply({ content: `❌ Failed to kick: ${e.message}` })
+      return interaction.editReply(errorCard('Kick Failed', [e.message]))
     }
 
     const caseId = db.createCase(guild.id, target.id, interaction.user.id, 'kick', reason)
-    const embed  = modAction({ action: 'Kick', target, mod: interaction.user, reason, caseId })
+    const lines = [
+      `**User** \u2014 ${target.username} (\`${target.id}\`)`,
+      `**Mod** \u2014 ${interaction.user.username} (\`${interaction.user.id}\`)`,
+      `**Reason** \u2014 ${reason}`
+    ]
+
+    const payload = modCard(`\u{1f528} Kick \u2014 Case #${caseId}`, lines)
 
     if (config?.case_channel) {
       const ch = guild.channels.cache.get(config.case_channel)
-      if (ch) await safeSend(ch, { embeds: [embed] })
+      if (ch) await safeSend(ch, payload)
     }
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(payload)
   }
 }

@@ -2,9 +2,9 @@
 
 const {
   SlashCommandBuilder, PermissionFlagsBits,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder
 } = require('discord.js')
-const { error } = require('../../../shared/embed')
+const { errorCard, successCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -24,17 +24,17 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true })
 
     const channel     = interaction.options.getChannel('channel')
-    const title       = interaction.options.getString('title')       ?? '🎫 Support Tickets'
+    const title       = interaction.options.getString('title')       ?? '\u{1f3ab} Support Tickets'
     const description = interaction.options.getString('description') ?? 'Click the button below to open a support ticket.\nOur team will assist you shortly.'
     const label       = interaction.options.getString('button_label') ?? 'Open Ticket'
     const colorStr    = interaction.options.getString('color') ?? '#5865F2'
     const color       = parseInt(colorStr.replace('#', ''), 16) || 0x5865F2
 
     if (!channel.isTextBased()) {
-      return interaction.editReply({ embeds: [error('Invalid channel', 'Please select a text channel.')] })
+      return interaction.editReply(errorCard('Invalid channel', ['Please select a text channel.']))
     }
 
-    const { EmbedBuilder } = require('discord.js')
+    // Ticket panels posted to channels stay as classic embed (persistent user-interactive content)
     const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(title)
@@ -46,15 +46,15 @@ module.exports = {
         .setCustomId('ticket_open')
         .setLabel(label)
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎫')
+        .setEmoji('\u{1f3ab}')
     )
 
     try {
       await channel.send({ embeds: [embed], components: [row] })
     } catch (e) {
-      return interaction.editReply({ embeds: [error('Failed', `Could not post panel: ${e.message}`)] })
+      return interaction.editReply(errorCard('Failed', [`Could not post panel: ${e.message}`]))
     }
 
-    await interaction.editReply({ content: `✅ Ticket panel posted in ${channel}.` })
+    await interaction.editReply(successCard('Panel Posted', [`\u2705 Ticket panel posted in ${channel}.`]))
   }
 }

@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js')
-const { success, warn } = require('../../../shared/embed')
-const { safeSend, sleep } = require('../../../shared/utils')
+const { successCard, warnCard } = require('../../../shared/components')
+const { safeSend, sleep }       = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'admin',
@@ -34,14 +34,13 @@ module.exports = {
     const everyoneRole = guild.roles.everyone
     const me           = guild.members.me
 
-    // Fetch all text channels the bot can manage
     const channels = guild.channels.cache.filter(ch =>
       (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildForum) &&
       ch.permissionsFor(me).has(PermissionFlagsBits.ManageChannels)
     )
 
     if (!channels.size) {
-      return interaction.editReply({ content: '❌ No manageable text channels found.' })
+      return interaction.editReply(warnCard('No Channels', ['No manageable text channels found.']))
     }
 
     let success_count = 0
@@ -67,21 +66,25 @@ module.exports = {
       } catch {
         fail_count++
       }
-      // Avoid rate limits
       await sleep(200)
     }
 
     // Post notice in current channel
-    const noticeEmbed = isStart
-      ? warn('🔒 Server Lockdown', `This server has been locked down by ${interaction.user}.\n**Reason:** ${reason}\n\nAll channels are temporarily restricted. Please wait for further instructions.`)
-      : success('🔓 Lockdown Lifted', `The server lockdown has been lifted by ${interaction.user}. Channels are now open.`)
+    const noticePayload = isStart
+      ? warnCard('\u{1f512} Server Lockdown', [
+          `This server has been locked down by ${interaction.user}.`,
+          `**Reason:** ${reason}`,
+          '',
+          'All channels are temporarily restricted. Please wait for further instructions.'
+        ])
+      : successCard('\u{1f513} Lockdown Lifted', [`The server lockdown has been lifted by ${interaction.user}. Channels are now open.`])
 
-    await safeSend(interaction.channel, { embeds: [noticeEmbed] })
+    await safeSend(interaction.channel, noticePayload)
 
-    const resultEmbed = isStart
-      ? warn('Lockdown Started', `🔒 Locked **${success_count}** channels.${fail_count ? ` (${fail_count} failed — missing perms)` : ''}\n**Reason:** ${reason}`)
-      : success('Lockdown Ended', `🔓 Unlocked **${success_count}** channels.${fail_count ? ` (${fail_count} skipped)` : ''}`)
+    const resultPayload = isStart
+      ? warnCard('Lockdown Started', [`\u{1f512} Locked **${success_count}** channels.${fail_count ? ` (${fail_count} failed)` : ''}`, `**Reason:** ${reason}`])
+      : successCard('Lockdown Ended', [`\u{1f513} Unlocked **${success_count}** channels.${fail_count ? ` (${fail_count} skipped)` : ''}`])
 
-    await interaction.editReply({ embeds: [resultEmbed] })
+    await interaction.editReply(resultPayload)
   }
 }

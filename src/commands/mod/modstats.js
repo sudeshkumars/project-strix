@@ -1,11 +1,10 @@
 'use strict'
 
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js')
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db             = require('../../../shared/db')
-const { COLORS }     = require('../../../shared/embed')
-const { parseDuration, capitalise } = require('../../../shared/utils')
+const { modCard }    = require('../../../shared/components')
+const { capitalise } = require('../../../shared/utils')
 
-// Timeframe options
 const TIMEFRAMES = {
   '24h':  86400,
   '7d':   604800,
@@ -14,15 +13,15 @@ const TIMEFRAMES = {
 }
 
 const ACTION_EMOJI = {
-  warn:    '⚠️',
-  mute:    '🔇',
-  kick:    '👢',
-  ban:     '🔨',
-  tempban: '⏳',
-  softban: '🧹',
-  unban:   '✅',
-  unmute:  '🔊',
-  note:    '📝'
+  warn:    '\u26a0\ufe0f',
+  mute:    '\u{1f507}',
+  kick:    '\u{1f462}',
+  ban:     '\u{1f528}',
+  tempban: '\u23f3',
+  softban: '\u{1f9f9}',
+  unban:   '\u2705',
+  unmute:  '\u{1f50a}',
+  note:    '\u{1f4dd}'
 }
 
 module.exports = {
@@ -54,9 +53,9 @@ module.exports = {
   async execute (client, interaction) {
     await interaction.deferReply({ ephemeral: true })
 
-    const targetMod  = interaction.options.getUser('mod') ?? interaction.user
+    const targetMod    = interaction.options.getUser('mod') ?? interaction.user
     const timeframeKey = interaction.options.getString('timeframe') ?? '30d'
-    const guild      = interaction.guild
+    const guild        = interaction.guild
 
     const windowSecs = TIMEFRAMES[timeframeKey] ?? TIMEFRAMES['30d']
     const since      = windowSecs > 0
@@ -65,31 +64,30 @@ module.exports = {
 
     const rows = db.getModStats(guild.id, targetMod.id, since)
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.mod)
-      .setTitle(`📊 Mod Stats — ${targetMod.tag}`)
-      .setThumbnail(targetMod.displayAvatarURL({ size: 64 }))
-      .setFooter({ text: `Timeframe: ${timeframeKey === 'all' ? 'All time' : `Last ${timeframeKey}`}` })
-      .setTimestamp()
-
     if (!rows.length) {
-      embed.setDescription('No moderation actions found in this timeframe.')
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(modCard(`\u{1f4ca} Mod Stats \u2014 ${targetMod.tag}`, [
+        'No moderation actions found in this timeframe.'
+      ], {
+        thumbnail: targetMod.displayAvatarURL({ size: 64 }),
+        subtext: `Timeframe: ${timeframeKey === 'all' ? 'All time' : `Last ${timeframeKey}`}`
+      }))
     }
 
     let total = 0
     const lines = []
 
     for (const row of rows) {
-      const emoji = ACTION_EMOJI[row.type] ?? '🔹'
-      lines.push(`${emoji} **${capitalise(row.type)}**: ${row.count}`)
+      const emoji = ACTION_EMOJI[row.type] ?? '\u{1f539}'
+      lines.push(`${emoji} **${capitalise(row.type)}** \u2014 ${row.count}`)
       total += row.count
     }
 
-    embed
-      .setDescription(lines.join('\n'))
-      .addFields({ name: 'Total Actions', value: String(total), inline: true })
+    lines.push('')
+    lines.push(`**Total Actions** \u2014 ${total}`)
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(modCard(`\u{1f4ca} Mod Stats \u2014 ${targetMod.tag}`, lines, {
+      thumbnail: targetMod.displayAvatarURL({ size: 64 }),
+      subtext: `Timeframe: ${timeframeKey === 'all' ? 'All time' : `Last ${timeframeKey}`}`
+    }))
   }
 }

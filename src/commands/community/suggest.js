@@ -1,9 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js')
-const db                       = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
-const { safeSend }             = require('../../../shared/utils')
+const db                                     = require('../../../shared/db')
+const { successCard, errorCard }             = require('../../../shared/components')
+const { safeSend }                           = require('../../../shared/utils')
 
 const STATUS_COLORS = {
   pending:      0xFEE75C,
@@ -55,45 +55,46 @@ module.exports = {
 
     if (sub === 'submit') {
       if (!config?.suggestions_channel) {
-        return interaction.editReply({ embeds: [error('Not configured', 'No suggestions channel set. Ask an admin to run `/config suggestions`.')] })
+        return interaction.editReply(errorCard('Not configured', ['No suggestions channel set. Ask an admin to run `/config suggestions`.']))
       }
 
       const content = interaction.options.getString('suggestion')
       const sugId   = db.createSuggestion(guildId, interaction.user.id, content)
 
       const ch    = interaction.guild.channels.cache.get(config.suggestions_channel)
-      if (!ch) return interaction.editReply({ embeds: [error('Channel not found', 'Suggestions channel is missing.')] })
+      if (!ch) return interaction.editReply(errorCard('Channel not found', ['Suggestions channel is missing.']))
 
+      // Suggestion embeds posted to the channel stay as classic EmbedBuilder (user-facing content)
       const embed = new EmbedBuilder()
         .setColor(STATUS_COLORS.pending)
-        .setTitle(`💡 Suggestion #${sugId}`)
+        .setTitle(`\u{1f4a1} Suggestion #${sugId}`)
         .setDescription(content)
         .addFields(
-          { name: 'Status',      value: '⏳ Pending', inline: true },
+          { name: 'Status',      value: '\u23f3 Pending', inline: true },
           { name: 'Submitted by', value: `${interaction.user}`, inline: true }
         )
         .setTimestamp()
 
       const msg = await safeSend(ch, { embeds: [embed] })
       if (msg) {
-        await msg.react('👍').catch(() => {})
-        await msg.react('👎').catch(() => {})
+        await msg.react('\u{1f44d}').catch(() => {})
+        await msg.react('\u{1f44e}').catch(() => {})
         db.updateSuggestion(sugId, guildId, { message_id: msg.id })
       }
 
-      return interaction.editReply({ embeds: [success('Submitted', `Your suggestion **#${sugId}** has been submitted.`)] })
+      return interaction.editReply(successCard('Submitted', [`Your suggestion **#${sugId}** has been submitted.`]))
     }
 
     // Mod-only actions
     const { resolveTier, TIERS } = require('../../../shared/permissions')
     if (resolveTier(interaction.member, config) < TIERS.MOD) {
-      return interaction.editReply({ embeds: [error('No permission', 'Mods only.')] })
+      return interaction.editReply(errorCard('No permission', ['Mods only.']))
     }
 
     const id     = interaction.options.getInteger('id')
     const note   = interaction.options.getString('note') ?? null
     const sug    = db.getSuggestion(id, guildId)
-    if (!sug) return interaction.editReply({ embeds: [error('Not found', `Suggestion #${id} not found.`)] })
+    if (!sug) return interaction.editReply(errorCard('Not found', [`Suggestion #${id} not found.`]))
 
     const statusMap = { approve: 'approved', deny: 'denied', implement: 'implemented', consider: 'considering' }
     const newStatus = statusMap[sub]
@@ -107,10 +108,10 @@ module.exports = {
         try {
           const msg = await ch.messages.fetch(sug.message_id)
           const statusLabels = {
-            approved:    '✅ Approved',
-            denied:      '❌ Denied',
-            implemented: '🚀 Implemented',
-            considering: '🤔 Under Consideration'
+            approved:    '\u2705 Approved',
+            denied:      '\u274c Denied',
+            implemented: '\u{1f680} Implemented',
+            considering: '\u{1f914} Under Consideration'
           }
           const updated = EmbedBuilder.from(msg.embeds[0])
             .setColor(STATUS_COLORS[newStatus])
@@ -121,6 +122,6 @@ module.exports = {
       }
     }
 
-    return interaction.editReply({ embeds: [success('Updated', `Suggestion **#${id}** marked as **${newStatus}**.`)] })
+    return interaction.editReply(successCard('Updated', [`Suggestion **#${id}** marked as **${newStatus}**.`]))
   }
 }

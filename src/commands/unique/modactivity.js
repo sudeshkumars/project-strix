@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db           = require('../../../shared/db')
-const { info }     = require('../../../shared/embed')
+const { infoCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -24,23 +24,25 @@ module.exports = {
     const since   = Math.floor(Date.now() / 1000) - (days * 86400)
 
     if (modUser) {
-      // Single mod breakdown
       const stats = db.getModStats(guildId, modUser.id, since)
       if (!stats.length) {
-        return interaction.editReply({ content: `No mod actions from ${modUser.tag} in the last ${days} days.` })
+        return interaction.editReply(infoCard(`\u{1f528} Mod Activity \u2014 ${modUser.tag}`, [`No mod actions in the last ${days} days.`]))
       }
 
       const total = stats.reduce((a, b) => a + b.count, 0)
-      const embed = info(`🔨 Mod Activity — ${modUser.tag}`, `Last **${days}** days`)
-        .setThumbnail(modUser.displayAvatarURL({ size: 64 }))
-        .addFields(
-          ...stats.map(s => ({ name: s.type.toUpperCase(), value: String(s.count), inline: true })),
-          { name: 'Total', value: String(total), inline: true }
-        )
-      return interaction.editReply({ embeds: [embed] })
+      const lines = [
+        `Last **${days}** days`,
+        '',
+        ...stats.map(s => `**${s.type.toUpperCase()}** \u2014 ${s.count}`),
+        '',
+        `**Total** \u2014 ${total}`
+      ]
+      return interaction.editReply(infoCard(`\u{1f528} Mod Activity \u2014 ${modUser.tag}`, lines, {
+        thumbnail: modUser.displayAvatarURL({ size: 64 })
+      }))
     }
 
-    // All mods — aggregate from cases table
+    // All mods
     const rows = db.getDb().prepare(`
       SELECT mod_id, type, COUNT(*) AS count
       FROM cases
@@ -50,10 +52,9 @@ module.exports = {
     `).all(guildId, since)
 
     if (!rows.length) {
-      return interaction.editReply({ content: `No mod actions in the last ${days} days.` })
+      return interaction.editReply(infoCard(`\u{1f528} Mod Activity \u2014 Last ${days} days`, [`No mod actions in the last ${days} days.`]))
     }
 
-    // Group by mod
     const byMod = new Map()
     for (const row of rows) {
       if (!byMod.has(row.mod_id)) byMod.set(row.mod_id, { total: 0, actions: {} })
@@ -64,18 +65,13 @@ module.exports = {
 
     const sorted = [...byMod.entries()].sort((a, b) => b[1].total - a[1].total)
 
-    const embed = info(`🔨 Mod Activity — Last ${days} days`, null)
-    for (const [modId, data] of sorted.slice(0, 10)) {
+    const lines = sorted.slice(0, 10).map(([modId, data]) => {
       const breakdown = Object.entries(data.actions)
         .map(([t, c]) => `${t}: ${c}`)
         .join(' | ')
-      embed.addFields({
-        name:  `<@${modId}> — ${data.total} actions`,
-        value: breakdown || 'N/A',
-        inline: false
-      })
-    }
+      return `<@${modId}> \u2014 **${data.total}** actions\n> ${breakdown || 'N/A'}`
+    })
 
-    return interaction.editReply({ embeds: [embed] })
+    return interaction.editReply(infoCard(`\u{1f528} Mod Activity \u2014 Last ${days} days`, lines))
   }
 }

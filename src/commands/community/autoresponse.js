@@ -3,10 +3,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const safeRegex                = require('safe-regex')
 const db                       = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
-
-// Autoresponses live in custom_commands table with type = 'autoresponse'
-// They fire automatically on message, unlike tags which require explicit use
+const { successCard, errorCard, infoCard, capList } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'mod',
@@ -62,20 +59,19 @@ module.exports = {
 
       if (regex) {
         if (!safeRegex(trigger)) {
-          return interaction.editReply({ embeds: [error('Unsafe regex', `Pattern \`${trigger}\` is unsafe (ReDoS risk).`)] })
+          return interaction.editReply(errorCard('Unsafe regex', [`Pattern \`${trigger}\` is unsafe (ReDoS risk).`]))
         }
         try { new RegExp(trigger) } catch {
-          return interaction.editReply({ embeds: [error('Invalid regex', `\`${trigger}\` is not valid regex.`)] })
+          return interaction.editReply(errorCard('Invalid regex', [`\`${trigger}\` is not valid regex.`]))
         }
       }
 
-      // Store as custom_command with type='autoresponse', exact flag in perm_level field
       const id = db.getDb().prepare(`
         INSERT INTO custom_commands (guild_id, trigger, response, type, perm_level, regex, channel_scope, created_at)
         VALUES (?, ?, ?, 'autoresponse', ?, ?, ?, ?)
       `).run(guildId, trigger, response, exact ? 'exact' : 'substring', regex ? 1 : 0, JSON.stringify(channels), Math.floor(Date.now() / 1000)).lastInsertRowid
 
-      return interaction.editReply({ embeds: [success('Auto-Response Added', `**#${id}** — \`${trigger}\` will now auto-respond.`)] })
+      return interaction.editReply(successCard('Auto-Response Added', [`**#${id}** \u2014 \`${trigger}\` will now auto-respond.`]))
     }
 
     if (sub === 'list') {
@@ -85,34 +81,29 @@ module.exports = {
         ORDER BY id DESC LIMIT 10 OFFSET ?
       `).all(guildId, page * 10)
 
-      if (!rows.length) return interaction.editReply({ content: 'No auto-responses configured.' })
+      if (!rows.length) return interaction.editReply(infoCard('\u{1f916} Auto-Responses', ['No auto-responses configured.']))
 
-      const embed = info(`🤖 Auto-Responses (page ${page + 1})`, null)
-      for (const r of rows) {
-        embed.addFields({
-          name:  `#${r.id} — \`${r.trigger}\` ${r.regex ? '(regex)' : ''} ${r.perm_level === 'exact' ? '(exact)' : ''}`,
-          value: r.response.slice(0, 80) + (r.response.length > 80 ? '…' : ''),
-          inline: false
-        })
-      }
-      return interaction.editReply({ embeds: [embed] })
+      const lines = rows.map(r =>
+        `**#${r.id}** \u2014 \`${r.trigger}\` ${r.regex ? '(regex)' : ''} ${r.perm_level === 'exact' ? '(exact)' : ''}\n> ${r.response.slice(0, 80)}${r.response.length > 80 ? '\u2026' : ''}`
+      )
+
+      return interaction.editReply(infoCard(`\u{1f916} Auto-Responses (page ${page + 1})`, lines))
     }
 
     if (sub === 'delete') {
       const id = interaction.options.getInteger('id')
       db.getDb().prepare(`DELETE FROM custom_commands WHERE id = ? AND guild_id = ? AND type = 'autoresponse'`).run(id, guildId)
-      return interaction.editReply({ embeds: [success('Deleted', `Auto-response **#${id}** deleted.`)] })
+      return interaction.editReply(successCard('Deleted', [`Auto-response **#${id}** deleted.`]))
     }
 
     if (sub === 'toggle') {
       const id  = interaction.options.getInteger('id')
       const row = db.getDb().prepare(`SELECT * FROM custom_commands WHERE id = ? AND guild_id = ? AND type = 'autoresponse'`).get(id, guildId)
-      if (!row) return interaction.editReply({ embeds: [error('Not found', `Auto-response #${id} not found.`)] })
+      if (!row) return interaction.editReply(errorCard('Not found', [`Auto-response #${id} not found.`]))
 
-      // Use cooldown field as enabled flag (0 = disabled, 1 = enabled default)
       const newState = row.cooldown === 1 ? 0 : 1
       db.getDb().prepare(`UPDATE custom_commands SET cooldown = ? WHERE id = ?`).run(newState, id)
-      return interaction.editReply({ embeds: [success('Toggled', `Auto-response **#${id}** is now **${newState ? 'enabled' : 'disabled'}**.`)] })
+      return interaction.editReply(successCard('Toggled', [`Auto-response **#${id}** is now **${newState ? 'enabled' : 'disabled'}**.`]))
     }
 
     if (sub === 'test') {
@@ -121,7 +112,7 @@ module.exports = {
         SELECT * FROM custom_commands WHERE guild_id = ? AND type = 'autoresponse' AND cooldown != 1
       `).all(guildId)
 
-      if (!rows.length) return interaction.editReply({ content: 'No active auto-responses.' })
+      if (!rows.length) return interaction.editReply(infoCard('Test', ['No active auto-responses.']))
 
       const hits = []
       for (const r of rows) {
@@ -131,11 +122,11 @@ module.exports = {
             ? text.toLowerCase() === r.trigger.toLowerCase()
             : text.toLowerCase().includes(r.trigger.toLowerCase())
 
-        if (matched) hits.push(`**#${r.id}** — \`${r.trigger}\` → ${r.response.slice(0, 60)}…`)
+        if (matched) hits.push(`**#${r.id}** \u2014 \`${r.trigger}\` \u2192 ${r.response.slice(0, 60)}\u2026`)
       }
 
-      if (!hits.length) return interaction.editReply({ embeds: [success('No Match', 'No auto-responses would fire on that text.')] })
-      return interaction.editReply({ embeds: [info('Matches', hits.join('\n'))] })
+      if (!hits.length) return interaction.editReply(successCard('No Match', ['No auto-responses would fire on that text.']))
+      return interaction.editReply(infoCard('Matches', hits))
     }
   }
 }

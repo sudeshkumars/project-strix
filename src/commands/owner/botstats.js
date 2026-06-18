@@ -1,9 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder } = require('discord.js')
-const db       = require('../../../shared/db')
-const { info } = require('../../../shared/embed')
-const os       = require('os')
+const db           = require('../../../shared/db')
+const { infoCard } = require('../../../shared/components')
+const os           = require('os')
 
 module.exports = {
   permLevel: 'owner',
@@ -27,22 +27,21 @@ module.exports = {
     const totalCmds  = stats.reduce((a, b) => a + (b.commands_fired ?? 0), 0)
     const totalJoins = stats.reduce((a, b) => a + (b.joins ?? 0), 0)
 
-    const embed = info('📊 Bot Stats', null)
-      .addFields(
-        { name: 'Guilds',    value: String(guilds),   inline: true },
-        { name: 'Users',     value: String(users),    inline: true },
-        { name: 'Commands',  value: String(commands), inline: true },
-        { name: 'Uptime',    value: uptime,           inline: true },
-        { name: 'Memory',    value: `${memMB} MB`,    inline: true },
-        { name: 'CPU Load',  value: cpuLoad,          inline: true },
-        { name: 'Node.js',   value: process.version,  inline: true },
-        { name: '7d Cmds',   value: String(totalCmds),  inline: true },
-        { name: '7d Joins',  value: String(totalJoins), inline: true }
-      )
-      .setFooter({ text: `Shard: ${client.shard?.ids?.[0] ?? 0}` })
-      .setTimestamp()
+    const lines = [
+      `**Guilds** \u2014 ${guilds}`,
+      `**Users** \u2014 ${users}`,
+      `**Commands** \u2014 ${commands}`,
+      `**Uptime** \u2014 ${uptime}`,
+      `**Memory** \u2014 ${memMB} MB`,
+      `**CPU Load** \u2014 ${cpuLoad}`,
+      `**Node.js** \u2014 ${process.version}`,
+      `**7d Cmds** \u2014 ${totalCmds}`,
+      `**7d Joins** \u2014 ${totalJoins}`
+    ]
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard('\u{1f4ca} Bot Stats', lines, {
+      subtext: `Shard: ${client.shard?.ids?.[0] ?? 0}`
+    }))
   }
 }
 

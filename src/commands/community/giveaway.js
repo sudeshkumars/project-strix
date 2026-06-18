@@ -4,8 +4,8 @@ const {
   SlashCommandBuilder, PermissionFlagsBits,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder
 } = require('discord.js')
-const db                       = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
+const db                                           = require('../../../shared/db')
+const { successCard, errorCard }                   = require('../../../shared/components')
 const { parseDuration, formatDuration, relativeTime, safeSend } = require('../../../shared/utils')
 
 module.exports = {
@@ -51,7 +51,7 @@ module.exports = {
       const bonusEntries = interaction.options.getInteger('bonus_entries') ?? 2
 
       const secs = parseDuration(durStr)
-      if (!secs) return interaction.editReply({ embeds: [error('Invalid duration', 'Use e.g. `1d`, `12h`.')] })
+      if (!secs) return interaction.editReply(errorCard('Invalid duration', ['Use e.g. `1d`, `12h`.']))
 
       const endsAt = Math.floor(Date.now() / 1000) + secs
 
@@ -65,34 +65,37 @@ module.exports = {
       const row   = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`giveaway_enter:${gwId}`)
-          .setLabel('🎉 Enter')
+          .setLabel('\u{1f389} Enter')
           .setStyle(ButtonStyle.Success)
       )
 
       const msg = await safeSend(channel, { embeds: [embed], components: [row] })
       if (msg) db.updateGiveaway(gwId, { message_id: msg.id })
 
-      return interaction.editReply({ embeds: [success('Giveaway Started', `Giveaway **#${gwId}** started in ${channel}!\nEnds: ${relativeTime(endsAt)}`)] })
+      return interaction.editReply(successCard('Giveaway Started', [
+        `Giveaway **#${gwId}** started in ${channel}!`,
+        `Ends: ${relativeTime(endsAt)}`
+      ]))
     }
 
     if (sub === 'end') {
       const gwId = interaction.options.getInteger('id')
       const gw   = db.getGiveaway(gwId)
-      if (!gw || gw.guild_id !== guildId) return interaction.editReply({ embeds: [error('Not found', `Giveaway #${gwId} not found.`)] })
-      if (gw.ended) return interaction.editReply({ embeds: [error('Already ended', 'This giveaway has already ended.')] })
+      if (!gw || gw.guild_id !== guildId) return interaction.editReply(errorCard('Not found', [`Giveaway #${gwId} not found.`]))
+      if (gw.ended) return interaction.editReply(errorCard('Already ended', ['This giveaway has already ended.']))
 
       await endGiveaway(client, gw)
-      return interaction.editReply({ embeds: [success('Ended', `Giveaway **#${gwId}** ended.`)] })
+      return interaction.editReply(successCard('Ended', [`Giveaway **#${gwId}** ended.`]))
     }
 
     if (sub === 'reroll') {
       const gwId = interaction.options.getInteger('id')
       const gw   = db.getGiveaway(gwId)
-      if (!gw || gw.guild_id !== guildId) return interaction.editReply({ embeds: [error('Not found', `Giveaway #${gwId} not found.`)] })
-      if (!gw.ended) return interaction.editReply({ embeds: [error('Not ended', 'End the giveaway first.')] })
+      if (!gw || gw.guild_id !== guildId) return interaction.editReply(errorCard('Not found', [`Giveaway #${gwId} not found.`]))
+      if (!gw.ended) return interaction.editReply(errorCard('Not ended', ['End the giveaway first.']))
 
       await endGiveaway(client, gw, true)
-      return interaction.editReply({ embeds: [success('Rerolled', `Giveaway **#${gwId}** rerolled.`)] })
+      return interaction.editReply(successCard('Rerolled', [`Giveaway **#${gwId}** rerolled.`]))
     }
   }
 }
@@ -100,7 +103,7 @@ module.exports = {
 function buildGiveawayEmbed (prize, winners, endsAt, host, requiredRole, bonusRole, bonusEntries) {
   const e = new EmbedBuilder()
     .setColor(0xF1C40F)
-    .setTitle('🎉 GIVEAWAY')
+    .setTitle('\u{1f389} GIVEAWAY')
     .setDescription(`**Prize:** ${prize}`)
     .addFields(
       { name: 'Winners',  value: String(winners),         inline: true },
@@ -124,15 +127,10 @@ async function endGiveaway (client, gw, reroll = false) {
   const channel = guild.channels.cache.get(gw.channel_id)
   if (!channel) return
 
-  // Fetch entrants from button reactions
   let msg
   try { msg = await channel.messages.fetch(gw.message_id) } catch { return }
 
-  // Collect entrants from button interaction — stored via giveaway_enter button
-  // For simplicity, fetch all members who reacted with 🎉 (fallback approach)
   const entrants = []
-
-  // Build entry pool from members (button handler stores in a temp map)
   const pool = client.giveawayEntries?.get(gw.id) ?? new Map()
 
   for (const [userId, entries] of pool) {
@@ -140,11 +138,10 @@ async function endGiveaway (client, gw, reroll = false) {
   }
 
   if (!entrants.length) {
-    await safeSend(channel, { content: `🎉 Giveaway ended — **no valid entrants** for **${gw.prize}**.` })
+    await safeSend(channel, { content: `\u{1f389} Giveaway ended \u2014 **no valid entrants** for **${gw.prize}**.` })
     return
   }
 
-  // Pick winners
   const winners = []
   const pool2   = [...entrants]
   for (let i = 0; i < Math.min(gw.winners, pool2.length); i++) {
@@ -153,10 +150,10 @@ async function endGiveaway (client, gw, reroll = false) {
   }
 
   const winnerMentions = [...new Set(winners)].map(id => `<@${id}>`).join(', ')
-  const label = reroll ? '🎉 Reroll Winners' : '🎉 Giveaway Ended'
+  const label = reroll ? '\u{1f389} Reroll Winners' : '\u{1f389} Giveaway Ended'
 
   await safeSend(channel, {
-    content: `${winnerMentions} — Congratulations! You won **${gw.prize}**!`,
+    content: `${winnerMentions} \u2014 Congratulations! You won **${gw.prize}**!`,
     embeds: [
       new EmbedBuilder()
         .setColor(0x57F287)
@@ -166,18 +163,19 @@ async function endGiveaway (client, gw, reroll = false) {
     ]
   })
 
-  // Disable the enter button
   try {
     await msg.edit({ components: [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`giveaway_enter:${gw.id}`)
-          .setLabel('🎉 Giveaway Ended')
+          .setLabel('\u{1f389} Giveaway Ended')
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(true)
       )
     ]})
   } catch {}
+
+  client.polls?.delete?.(gw.id)
 }
 
 module.exports.endGiveaway = endGiveaway

@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder } = require('discord.js')
-const { info, success, error } = require('../../../shared/embed')
+const { infoCard, successCard, errorCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'owner',
@@ -35,50 +35,45 @@ module.exports = {
         .sort((a, b) => b.memberCount - a.memberCount)
         .slice(page * limit, page * limit + limit)
 
-      if (!guilds.length) return interaction.editReply({ content: 'No guilds on this page.' })
+      if (!guilds.length) return interaction.editReply(infoCard('\u{1f310} Guilds', ['No guilds on this page.']))
 
-      const embed = info(`🌐 Guilds — Page ${page + 1}`, null)
-        .setFooter({ text: `Total: ${client.guilds.cache.size}` })
+      const lines = guilds.map(g =>
+        `**${g.name}** \u2014 \`${g.id}\` | \u{1f465} ${g.memberCount} | Owner: \`${g.ownerId}\``
+      )
 
-      for (const g of guilds) {
-        embed.addFields({
-          name:  g.name,
-          value: `\`${g.id}\` | 👥 ${g.memberCount} | Owner: \`${g.ownerId}\``,
-          inline: false
-        })
-      }
-
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(infoCard(`\u{1f310} Guilds \u2014 Page ${page + 1}`, lines, {
+        subtext: `Total: ${client.guilds.cache.size}`
+      }))
     }
 
     if (sub === 'info') {
       const guildId = interaction.options.getString('guild_id')
       const guild   = client.guilds.cache.get(guildId)
-      if (!guild) return interaction.editReply({ embeds: [error('Not found', `Not in guild \`${guildId}\`.`)] })
+      if (!guild) return interaction.editReply(errorCard('Not found', [`Not in guild \`${guildId}\`.`]))
 
-      const embed = info(`🏠 ${guild.name}`, null)
-        .addFields(
-          { name: 'ID',         value: guild.id,              inline: true },
-          { name: 'Members',    value: String(guild.memberCount), inline: true },
-          { name: 'Owner',      value: `\`${guild.ownerId}\``, inline: true },
-          { name: 'Created',    value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:F>`, inline: true },
-          { name: 'Channels',   value: String(guild.channels.cache.size), inline: true },
-          { name: 'Roles',      value: String(guild.roles.cache.size), inline: true }
-        )
+      const lines = [
+        `**ID** \u2014 ${guild.id}`,
+        `**Members** \u2014 ${guild.memberCount}`,
+        `**Owner** \u2014 \`${guild.ownerId}\``,
+        `**Created** \u2014 <t:${Math.floor(guild.createdTimestamp / 1000)}:F>`,
+        `**Channels** \u2014 ${guild.channels.cache.size}`,
+        `**Roles** \u2014 ${guild.roles.cache.size}`
+      ]
 
-      if (guild.iconURL()) embed.setThumbnail(guild.iconURL())
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(infoCard(`\u{1f3e0} ${guild.name}`, lines, {
+        thumbnail: guild.iconURL() || undefined
+      }))
     }
 
     if (sub === 'leave') {
       const guildId = interaction.options.getString('guild_id')
       const guild   = client.guilds.cache.get(guildId)
-      if (!guild) return interaction.editReply({ embeds: [error('Not found', `Not in guild \`${guildId}\`.`)] })
+      if (!guild) return interaction.editReply(errorCard('Not found', [`Not in guild \`${guildId}\`.`]))
 
       const name = guild.name
-      try { await guild.leave() } catch (e) { return interaction.editReply({ embeds: [error('Failed', e.message)] }) }
+      try { await guild.leave() } catch (e) { return interaction.editReply(errorCard('Failed', [e.message])) }
 
-      return interaction.editReply({ embeds: [success('Left Guild', `Left **${name}** (\`${guildId}\`).`)] })
+      return interaction.editReply(successCard('Left Guild', [`Left **${name}** (\`${guildId}\`).`]))
     }
   }
 }

@@ -1,10 +1,10 @@
 'use strict'
 
-const { SlashCommandBuilder, ChannelType, EmbedBuilder } = require('discord.js')
-const db                                                  = require('../../../shared/db')
-const { info, COLORS }                                    = require('../../../shared/embed')
-const { calcLevel, fullTime, relativeTime }               = require('../../../shared/utils')
-const { resolveTier, tierName }                           = require('../../../shared/permissions')
+const { SlashCommandBuilder, ChannelType } = require('discord.js')
+const db                                   = require('../../../shared/db')
+const { infoCard, buildCardPayload }       = require('../../../shared/components')
+const { calcLevel, fullTime, relativeTime } = require('../../../shared/utils')
+const { resolveTier, tierName }            = require('../../../shared/permissions')
 
 const VERIFICATION = ['None', 'Low', 'Medium', 'High', 'Very High']
 
@@ -71,28 +71,28 @@ async function infoServer (interaction, client) {
   const totalMsg  = stats.reduce((a, b) => a + (b.messages ?? 0), 0)
   const totalJoin = stats.reduce((a, b) => a + (b.joins ?? 0), 0)
 
-  const embed = info(`🏠 ${guild.name}`, null)
-    .setThumbnail(guild.iconURL({ size: 256 }))
-    .addFields(
-      { name: 'ID',           value: guild.id,                                            inline: true },
-      { name: 'Owner',        value: `<@${guild.ownerId}>`,                               inline: true },
-      { name: 'Created',      value: fullTime(Math.floor(guild.createdTimestamp / 1000)), inline: true },
-      { name: 'Members',      value: `👥 ${humans} humans | 🤖 ${bots} bots`,            inline: true },
-      { name: 'Channels',     value: `💬 ${text} text | 🔊 ${voice} voice | 📁 ${cats} cats`, inline: true },
-      { name: 'Roles',        value: String(roles),                                        inline: true },
-      { name: 'Emojis',       value: String(emojis),                                      inline: true },
-      { name: 'Boosts',       value: `${boosts} (Tier ${tier})`,                         inline: true },
-      { name: 'Verification', value: VERIFICATION[guild.verificationLevel] ?? 'Unknown',  inline: true },
-      { name: '7d Activity',  value: `📨 ${totalMsg} msgs | 📥 ${totalJoin} joins`,      inline: false }
-    )
+  const lines = [
+    `**ID** \u2014 ${guild.id}`,
+    `**Owner** \u2014 <@${guild.ownerId}>`,
+    `**Created** \u2014 ${fullTime(Math.floor(guild.createdTimestamp / 1000))}`,
+    `**Members** \u2014 \u{1f465} ${humans} humans | \u{1f916} ${bots} bots`,
+    `**Channels** \u2014 \u{1f4ac} ${text} text | \u{1f50a} ${voice} voice | \u{1f4c1} ${cats} cats`,
+    `**Roles** \u2014 ${roles}`,
+    `**Emojis** \u2014 ${emojis}`,
+    `**Boosts** \u2014 ${boosts} (Tier ${tier})`,
+    `**Verification** \u2014 ${VERIFICATION[guild.verificationLevel] ?? 'Unknown'}`,
+    `**7d Activity** \u2014 \u{1f4e8} ${totalMsg} msgs | \u{1f4e5} ${totalJoin} joins`
+  ]
 
-  if (guild.description) embed.setDescription(guild.description)
-  if (guild.bannerURL())  embed.setImage(guild.bannerURL({ size: 1024 }))
+  if (guild.description) lines.unshift(guild.description)
 
   const features = guild.features.slice(0, 6).map(f => `\`${f}\``).join(', ')
-  if (features) embed.addFields({ name: 'Features', value: features, inline: false })
+  if (features) lines.push(`**Features** \u2014 ${features}`)
 
-  await interaction.editReply({ embeds: [embed] })
+  await interaction.editReply(infoCard(`\u{1f3e0} ${guild.name}`, lines, {
+    thumbnail: guild.iconURL({ size: 256 }) || undefined,
+    image: guild.bannerURL({ size: 1024 }) || undefined
+  }))
 }
 
 // ─── /info user ───────────────────────────────────────────────────────────────
@@ -121,33 +121,29 @@ async function infoUser (interaction, client) {
         .join(', ') || 'None'
     : 'Not in server'
 
-  const embed = info(`👤 ${target.tag}`, null)
-    .setThumbnail(target.displayAvatarURL({ size: 256 }))
-    .addFields(
-      { name: 'ID',          value: target.id,                                                           inline: true },
-      { name: 'Bot',         value: target.bot ? 'Yes' : 'No',                                          inline: true },
-      { name: 'Tier',        value: tier,                                                                inline: true },
-      { name: 'Created',     value: fullTime(Math.floor(target.createdTimestamp / 1000)),                inline: true },
-      { name: 'Joined',      value: member ? fullTime(Math.floor(member.joinedTimestamp / 1000)) : 'N/A', inline: true },
-      { name: 'Nickname',    value: member?.nickname ?? 'None',                                         inline: true },
-      { name: 'XP / Level',  value: row ? `${row.xp} XP | Level ${level}` : 'No data',                 inline: true },
-      { name: 'Rank',        value: rank ? `#${rank.rank}` : 'N/A',                                     inline: true },
-      { name: 'Rep',         value: row ? String(row.rep) : '0',                                        inline: true },
-      { name: 'Cases',       value: String(caseCount),                                                   inline: true },
-      { name: 'Warn Points', value: String(warnPts),                                                     inline: true },
-      { name: 'Messages',    value: row ? String(row.messages) : '0',                                   inline: true },
-      { name: 'Roles',       value: roles,                                                               inline: false }
-    )
+  const lines = [
+    `**ID** \u2014 ${target.id}`,
+    `**Bot** \u2014 ${target.bot ? 'Yes' : 'No'}`,
+    `**Tier** \u2014 ${tier}`,
+    `**Created** \u2014 ${fullTime(Math.floor(target.createdTimestamp / 1000))}`,
+    `**Joined** \u2014 ${member ? fullTime(Math.floor(member.joinedTimestamp / 1000)) : 'N/A'}`,
+    `**Nickname** \u2014 ${member?.nickname ?? 'None'}`,
+    `**XP / Level** \u2014 ${row ? `${row.xp} XP | Level ${level}` : 'No data'}`,
+    `**Rank** \u2014 ${rank ? `#${rank.rank}` : 'N/A'}`,
+    `**Rep** \u2014 ${row ? String(row.rep) : '0'}`,
+    `**Cases** \u2014 ${caseCount}`,
+    `**Warn Points** \u2014 ${warnPts}`,
+    `**Messages** \u2014 ${row ? String(row.messages) : '0'}`,
+    `**Roles** \u2014 ${roles}`
+  ]
 
   if (member?.premiumSince) {
-    embed.addFields({
-      name:  'Boosting since',
-      value: relativeTime(Math.floor(member.premiumSinceTimestamp / 1000)),
-      inline: true
-    })
+    lines.push(`**Boosting since** \u2014 ${relativeTime(Math.floor(member.premiumSinceTimestamp / 1000))}`)
   }
 
-  await interaction.editReply({ embeds: [embed] })
+  await interaction.editReply(infoCard(`\u{1f464} ${target.tag}`, lines, {
+    thumbnail: target.displayAvatarURL({ size: 256 })
+  }))
 }
 
 // ─── /info bot ────────────────────────────────────────────────────────────────
@@ -162,22 +158,21 @@ async function infoBot (interaction, client) {
   const stats = db.getBotStats(7)
   const totalCmds = stats.reduce((a, b) => a + (b.commands_fired ?? 0), 0)
 
-  const embed = info(`🤖 ${client.user.tag}`, null)
-    .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
-    .addFields(
-      { name: 'ID',           value: client.user.id,                inline: true },
-      { name: 'Guilds',       value: String(guildCount),            inline: true },
-      { name: 'Users',        value: String(userCount),             inline: true },
-      { name: 'Commands',     value: String(cmdCount),              inline: true },
-      { name: 'Ping',         value: `${client.ws.ping}ms`,         inline: true },
-      { name: 'Online Since', value: fullTime(startedAt),           inline: true },
-      { name: 'Uptime',       value: formatUptime(uptimeMs),        inline: true },
-      { name: '7d Commands',  value: String(totalCmds),             inline: true },
-      { name: 'Node.js',      value: process.version,               inline: true }
-    )
-    .setTimestamp()
+  const lines = [
+    `**ID** \u2014 ${client.user.id}`,
+    `**Guilds** \u2014 ${guildCount}`,
+    `**Users** \u2014 ${userCount}`,
+    `**Commands** \u2014 ${cmdCount}`,
+    `**Ping** \u2014 ${client.ws.ping}ms`,
+    `**Online Since** \u2014 ${fullTime(startedAt)}`,
+    `**Uptime** \u2014 ${formatUptime(uptimeMs)}`,
+    `**7d Commands** \u2014 ${totalCmds}`,
+    `**Node.js** \u2014 ${process.version}`
+  ]
 
-  await interaction.editReply({ embeds: [embed] })
+  await interaction.editReply(infoCard(`\u{1f916} ${client.user.tag}`, lines, {
+    thumbnail: client.user.displayAvatarURL({ size: 256 })
+  }))
 }
 
 // ─── /info role ───────────────────────────────────────────────────────────────
@@ -190,23 +185,23 @@ async function infoRole (interaction) {
     .map(p => `\`${p}\``)
     .join(', ') || 'None'
 
-  const embed = new EmbedBuilder()
-    .setColor(role.color || COLORS.info)
-    .setTitle(`🎭 ${role.name}`)
-    .addFields(
-      { name: 'ID',          value: role.id,                                       inline: true },
-      { name: 'Color',       value: role.hexColor,                                 inline: true },
-      { name: 'Position',    value: String(role.position),                         inline: true },
-      { name: 'Mentionable', value: role.mentionable ? 'Yes' : 'No',             inline: true },
-      { name: 'Hoisted',     value: role.hoist ? 'Yes' : 'No',                   inline: true },
-      { name: 'Managed',     value: role.managed ? 'Yes (bot role)' : 'No',      inline: true },
-      { name: 'Members',     value: String(role.members.size),                    inline: true },
-      { name: 'Created',     value: fullTime(Math.floor(role.createdTimestamp / 1000)), inline: true },
-      { name: 'Permissions', value: perms,                                         inline: false }
-    )
-    .setTimestamp()
+  const lines = [
+    `**ID** \u2014 ${role.id}`,
+    `**Color** \u2014 ${role.hexColor}`,
+    `**Position** \u2014 ${role.position}`,
+    `**Mentionable** \u2014 ${role.mentionable ? 'Yes' : 'No'}`,
+    `**Hoisted** \u2014 ${role.hoist ? 'Yes' : 'No'}`,
+    `**Managed** \u2014 ${role.managed ? 'Yes (bot role)' : 'No'}`,
+    `**Members** \u2014 ${role.members.size}`,
+    `**Created** \u2014 ${fullTime(Math.floor(role.createdTimestamp / 1000))}`,
+    `**Permissions** \u2014 ${perms}`
+  ]
 
-  await interaction.editReply({ embeds: [embed] })
+  await interaction.editReply(buildCardPayload({
+    accent: role.color || 'info',
+    title: `\u{1f3ad} ${role.name}`,
+    lines
+  }))
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -1,9 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js')
-const db                       = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
-const { safeSend, sleep }      = require('../../../shared/utils')
+const db                                     = require('../../../shared/db')
+const { successCard, errorCard, infoCard }   = require('../../../shared/components')
+const { safeSend, sleep }                    = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'owner',
@@ -35,17 +35,12 @@ module.exports = {
 
     if (sub === 'history') {
       const rows = db.getDb().prepare('SELECT * FROM broadcast_log ORDER BY created_at DESC LIMIT 10').all()
-      if (!rows.length) return interaction.editReply({ content: 'No broadcast history.' })
+      if (!rows.length) return interaction.editReply(infoCard('\u{1f4e2} Broadcast History', ['No broadcast history.']))
 
-      const embed = info('📢 Broadcast History', null)
-      for (const r of rows) {
-        embed.addFields({
-          name:  `${r.title} (${r.type ?? 'update'})`,
-          value: `✅ ${r.sent_count} sent | ❌ ${r.fail_count} failed | ⏭️ ${r.skip_count} skipped`,
-          inline: false
-        })
-      }
-      return interaction.editReply({ embeds: [embed] })
+      const lines = rows.map(r =>
+        `**${r.title}** (${r.type ?? 'update'})\n> \u2705 ${r.sent_count} sent | \u274c ${r.fail_count} failed | \u23ed\ufe0f ${r.skip_count} skipped`
+      )
+      return interaction.editReply(infoCard('\u{1f4e2} Broadcast History', lines))
     }
 
     // ── send ──────────────────────────────────────────────────────────────────
@@ -55,9 +50,10 @@ module.exports = {
     const colorHex = interaction.options.getString('color') ?? '#5865F2'
     const color   = parseInt(colorHex.replace('#', ''), 16) || 0x5865F2
 
-    const TYPE_ICONS = { update: '📢', maintenance: '🔧', alert: '🚨' }
-    const icon = TYPE_ICONS[type] ?? '📢'
+    const TYPE_ICONS = { update: '\u{1f4e2}', maintenance: '\u{1f527}', alert: '\u{1f6a8}' }
+    const icon = TYPE_ICONS[type] ?? '\u{1f4e2}'
 
+    // The broadcast embed sent to guilds stays as classic EmbedBuilder (external delivery)
     const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(`${icon} ${title}`)
@@ -68,7 +64,7 @@ module.exports = {
     const webhooks = db.getAllWebhooks()
     let sent = 0, failed = 0, skipped = 0
 
-    await interaction.editReply({ content: `📢 Broadcasting to **${webhooks.length}** guilds…` })
+    await interaction.editReply(infoCard('Broadcasting', [`\u{1f4e2} Broadcasting to **${webhooks.length}** guilds\u2026`]))
 
     for (const row of webhooks) {
       if (!row.webhook_url) { skipped++; continue }
@@ -87,7 +83,6 @@ module.exports = {
         if (res.ok) {
           sent++
         } else if (res.status === 404) {
-          // Webhook deleted
           db.clearWebhook(row.guild_id)
           skipped++
         } else {
@@ -97,16 +92,13 @@ module.exports = {
         failed++
       }
 
-      // Rate limit safety — 30 webhooks/sec max
       if (sent % 25 === 0) await sleep(1000)
     }
 
     db.insertBroadcastLog(title, type, message, sent, failed, skipped)
 
-    await interaction.editReply({
-      embeds: [success('Broadcast Complete',
-        `✅ Sent: **${sent}** | ❌ Failed: **${failed}** | ⏭️ Skipped: **${skipped}**`
-      )]
-    })
+    await interaction.editReply(successCard('Broadcast Complete', [
+      `\u2705 Sent: **${sent}** | \u274c Failed: **${failed}** | \u23ed\ufe0f Skipped: **${skipped}**`
+    ]))
   }
 }

@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const db                   = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
+const db                                           = require('../../../shared/db')
+const { successCard, errorCard, infoCard }         = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -35,28 +35,25 @@ module.exports = {
       const level = interaction.options.getInteger('level')
       const role  = interaction.options.getRole('role')
 
-      if (role.managed) return interaction.editReply({ embeds: [error('Invalid role', 'Cannot use bot-managed roles.')] })
-      if (role.id === interaction.guild.roles.everyone.id) return interaction.editReply({ embeds: [error('Invalid role', 'Cannot use @everyone.')] })
+      if (role.managed) return interaction.editReply(errorCard('Invalid role', ['Cannot use bot-managed roles.']))
+      if (role.id === interaction.guild.roles.everyone.id) return interaction.editReply(errorCard('Invalid role', ['Cannot use @everyone.']))
 
       db.setLevelRole(guildId, level, role.id)
-      return interaction.editReply({ embeds: [success('Level Role Added', `**Level ${level}** → ${role} reward set.`)] })
+      return interaction.editReply(successCard('Level Role Added', [`**Level ${level}** \u2192 ${role} reward set.`]))
     }
 
     if (sub === 'remove') {
       const level = interaction.options.getInteger('level')
       db.deleteLevelRole(guildId, level)
-      return interaction.editReply({ embeds: [success('Removed', `Level ${level} role reward removed.`)] })
+      return interaction.editReply(successCard('Removed', [`Level ${level} role reward removed.`]))
     }
 
     if (sub === 'list') {
       const roles = db.getLevelRoles(guildId)
-      if (!roles.length) return interaction.editReply({ content: 'No level roles configured.' })
+      if (!roles.length) return interaction.editReply(infoCard('\u{1f396}\ufe0f Level Roles', ['No level roles configured.']))
 
-      const embed = info('🎖️ Level Roles', null)
-      for (const r of roles) {
-        embed.addFields({ name: `Level ${r.level}`, value: `<@&${r.role_id}>`, inline: true })
-      }
-      return interaction.editReply({ embeds: [embed] })
+      const lines = roles.map(r => `**Level ${r.level}** \u2014 <@&${r.role_id}>`)
+      return interaction.editReply(infoCard('\u{1f396}\ufe0f Level Roles', lines))
     }
   }
 }

@@ -1,9 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const db          = require('../../../shared/db')
-const { info }    = require('../../../shared/embed')
-const { relativeTime } = require('../../../shared/utils')
+const db                  = require('../../../shared/db')
+const { infoCard, capList } = require('../../../shared/components')
+const { relativeTime }    = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'mod',
@@ -28,26 +28,17 @@ module.exports = {
     const totalPts = db.getActiveWarnPoints(interaction.guild.id, target.id, decayDays)
 
     if (!warns.length) {
-      return interaction.editReply({ content: `✅ **${target.tag}** has no warnings.` })
+      return interaction.editReply(infoCard(`\u26a0\ufe0f Warnings \u2014 ${target.tag}`, ['\u2705 No warnings found.']))
     }
 
-    const embed = info(`⚠️ Warnings — ${target.tag}`, null)
-      .setThumbnail(target.displayAvatarURL({ size: 64 }))
-      .setFooter({ text: `Active points: ${totalPts} / ${config?.warn_threshold ?? 3} threshold` })
-
-    for (const w of warns.slice(0, 10)) {
+    const warnLines = capList(warns.slice(0, 10), 10, w => {
       const status = w.pardoned ? '~~' : ''
-      embed.addFields({
-        name:  `#${w.warn_id} — ${relativeTime(w.created_at)}`,
-        value: `${status}**Reason:** ${w.reason} | **Points:** ${w.points} | **By:** <@${w.mod_id}>${status}`,
-        inline: false
-      })
-    }
+      return `${status}**#${w.warn_id}** \u2014 ${relativeTime(w.created_at)} | Pts: ${w.points} | By: <@${w.mod_id}>\n> ${w.reason}${status}`
+    })
 
-    if (warns.length > 10) {
-      embed.setFooter({ text: `Showing 10 of ${warns.length} warnings | Active points: ${totalPts}` })
-    }
-
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u26a0\ufe0f Warnings \u2014 ${target.tag}`, warnLines, {
+      thumbnail: target.displayAvatarURL({ size: 64 }),
+      subtext: `Active points: ${totalPts} / ${config?.warn_threshold ?? 3} threshold${warns.length > 10 ? ` \u2022 Showing 10 of ${warns.length}` : ''}`
+    }))
   }
 }

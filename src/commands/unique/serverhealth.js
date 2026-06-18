@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db           = require('../../../shared/db')
-const { info }     = require('../../../shared/embed')
+const { infoCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -32,22 +32,18 @@ module.exports = {
 
     const retention = join7 > 0 ? ((join7 - leave7) / join7 * 100).toFixed(1) : 'N/A'
 
-    // Open tickets
     const ticketStats = db.getTicketStats(guildId)
 
-    // Active warns
     const activeWarns = db.getDb().prepare(`
       SELECT COUNT(*) AS count FROM warnings
       WHERE guild_id = ? AND pardoned = 0 AND created_at >= ?
     `).get(guildId, Math.floor(Date.now() / 1000) - 30 * 86400).count
 
-    // Active bans
     const activeBans = db.getDb().prepare(`
       SELECT COUNT(*) AS count FROM cases
       WHERE guild_id = ? AND type IN ('ban','tempban') AND active = 1
     `).get(guildId).count
 
-    // Automod fires (last 7d)
     const automodFires = db.getDb().prepare(`
       SELECT COUNT(*) AS count FROM cases
       WHERE guild_id = ? AND mod_id = ? AND created_at >= ?
@@ -55,26 +51,25 @@ module.exports = {
 
     const healthScore = calcHealthScore({ join7, leave7, msg7, activeBans, activeWarns })
 
-    const embed = info(`🏥 Server Health — ${guild.name}`, null)
-      .setThumbnail(guild.iconURL())
-      .addFields(
-        { name: '📊 Health Score', value: `${healthScore}/100`, inline: true },
-        { name: '👥 Members',      value: String(guild.memberCount), inline: true },
-        { name: '📥 7d Net Growth', value: `${join7 - leave7 >= 0 ? '+' : ''}${join7 - leave7}`, inline: true },
-        { name: '💬 7d Messages',  value: String(msg7),   inline: true },
-        { name: '💬 30d Messages', value: String(msg30),  inline: true },
-        { name: '🎙️ 7d Voice min', value: String(voice7), inline: true },
-        { name: '📥 7d Joins',     value: String(join7),  inline: true },
-        { name: '📤 7d Leaves',    value: String(leave7), inline: true },
-        { name: '📈 Retention',    value: retention !== 'N/A' ? `${retention}%` : 'N/A', inline: true },
-        { name: '🎫 Open Tickets', value: String(ticketStats.open ?? 0),   inline: true },
-        { name: '⚠️ Active Warns', value: String(activeWarns),             inline: true },
-        { name: '🔨 Active Bans',  value: String(activeBans),              inline: true },
-        { name: '🛡️ Automod 7d',  value: String(automodFires),            inline: true }
-      )
-      .setTimestamp()
+    const lines = [
+      `\u{1f4ca} **Health Score** \u2014 ${healthScore}/100`,
+      `\u{1f465} **Members** \u2014 ${guild.memberCount}`,
+      `\u{1f4e5} **7d Net Growth** \u2014 ${join7 - leave7 >= 0 ? '+' : ''}${join7 - leave7}`,
+      `\u{1f4ac} **7d Messages** \u2014 ${msg7}`,
+      `\u{1f4ac} **30d Messages** \u2014 ${msg30}`,
+      `\u{1f399}\ufe0f **7d Voice min** \u2014 ${voice7}`,
+      `\u{1f4e5} **7d Joins** \u2014 ${join7}`,
+      `\u{1f4e4} **7d Leaves** \u2014 ${leave7}`,
+      `\u{1f4c8} **Retention** \u2014 ${retention !== 'N/A' ? `${retention}%` : 'N/A'}`,
+      `\u{1f3ab} **Open Tickets** \u2014 ${ticketStats.open ?? 0}`,
+      `\u26a0\ufe0f **Active Warns** \u2014 ${activeWarns}`,
+      `\u{1f528} **Active Bans** \u2014 ${activeBans}`,
+      `\u{1f6e1}\ufe0f **Automod 7d** \u2014 ${automodFires}`
+    ]
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u{1f3e5} Server Health \u2014 ${guild.name}`, lines, {
+      thumbnail: guild.iconURL() || undefined
+    }))
   }
 }
 

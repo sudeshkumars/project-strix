@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const db                       = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
+const db                                           = require('../../../shared/db')
+const { successCard, errorCard, infoCard }         = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -41,26 +41,21 @@ module.exports = {
         ON CONFLICT(guild_id, role_id) DO UPDATE SET multiplier = ?
       `).run(guildId, role.id, multiplier, multiplier)
 
-      return interaction.editReply({
-        embeds: [success('Multiplier Set', `${role} now grants **${multiplier}x** XP.`)]
-      })
+      return interaction.editReply(successCard('Multiplier Set', [`${role} now grants **${multiplier}x** XP.`]))
     }
 
     if (sub === 'remove') {
       const role = interaction.options.getRole('role')
       db.getDb().prepare('DELETE FROM xp_multipliers WHERE guild_id = ? AND role_id = ?').run(guildId, role.id)
-      return interaction.editReply({ embeds: [success('Removed', `Multiplier removed from ${role}.`)] })
+      return interaction.editReply(successCard('Removed', [`Multiplier removed from ${role}.`]))
     }
 
     if (sub === 'list') {
       const rows = db.getDb().prepare('SELECT * FROM xp_multipliers WHERE guild_id = ? ORDER BY multiplier DESC').all(guildId)
-      if (!rows.length) return interaction.editReply({ content: 'No XP multipliers set.' })
+      if (!rows.length) return interaction.editReply(infoCard('\u26a1 XP Multipliers', ['No XP multipliers set.']))
 
-      const embed = info('⚡ XP Multipliers', null)
-      for (const r of rows) {
-        embed.addFields({ name: `<@&${r.role_id}>`, value: `**${r.multiplier}x**`, inline: true })
-      }
-      return interaction.editReply({ embeds: [embed] })
+      const lines = rows.map(r => `<@&${r.role_id}> \u2014 **${r.multiplier}x**`)
+      return interaction.editReply(infoCard('\u26a1 XP Multipliers', lines))
     }
   }
 }

@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const { updateConfig }         = require('../../../shared/cache')
-const { success, info }        = require('../../../shared/embed')
+const { updateConfig }                             = require('../../../shared/cache')
+const { successCard, infoCard }                    = require('../../../shared/components')
 
 const MODULES = [
   { name: 'leveling',   label: 'XP & Leveling'       },
@@ -25,14 +25,8 @@ module.exports = {
     .setName('module')
     .setDescription('Enable or disable bot modules')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addSubcommand(s => s
-      .setName('toggle')
-      .setDescription('Toggle a module on or off')
-      .addStringOption(o => o.setName('module').setDescription('Module name').setRequired(true)
-        .addChoices(...MODULES.map(m => ({ name: m.label, value: m.name })))))
-    .addSubcommand(s => s
-      .setName('list')
-      .setDescription('List all modules and their status')),
+    .addSubcommand(s => s.setName('toggle').setDescription('Toggle a module on or off').addStringOption(o => o.setName('module').setDescription('Module name').setRequired(true).addChoices(...MODULES.map(m => ({ name: m.label, value: m.name })))))
+    .addSubcommand(s => s.setName('list').setDescription('List all modules and their status')),
 
   async execute (client, interaction) {
     await interaction.deferReply({ ephemeral: true })
@@ -45,34 +39,23 @@ module.exports = {
     if (sub === 'toggle') {
       const modName  = interaction.options.getString('module')
       const modDef   = MODULES.find(m => m.name === modName)
-      const current  = modules[modName] ?? true  // default enabled
+      const current  = modules[modName] ?? true
       modules[modName] = !current
 
       updateConfig(client, guildId, { modules: JSON.stringify(modules) }, { modules })
 
-      const state = modules[modName] ? '✅ Enabled' : '❌ Disabled'
-      return interaction.editReply({
-        embeds: [success('Module Updated', `**${modDef?.label ?? modName}** is now **${state}**.`)]
-      })
+      const state = modules[modName] ? '\u2705 Enabled' : '\u274c Disabled'
+      return interaction.editReply(successCard('Module Updated', [`**${modDef?.label ?? modName}** is now **${state}**.`]))
     }
 
     if (sub === 'list') {
-      const embed = info('🧩 Modules', null)
-      for (const mod of MODULES) {
+      const lines = MODULES.map(mod => {
         const enabled = modules[mod.name] ?? true
-        embed.addFields({
-          name:  `${enabled ? '✅' : '❌'} ${mod.label}`,
-          value: `\`${mod.name}\``,
-          inline: true
-        })
-      }
-      return interaction.editReply({ embeds: [embed] })
+        return `${enabled ? '\u2705' : '\u274c'} **${mod.label}** \u2014 \`${mod.name}\``
+      })
+      return interaction.editReply(infoCard('\u{1f9e9} Modules', lines))
     }
   }
 }
 
-function parseObj (val) {
-  if (!val) return {}
-  if (typeof val === 'object') return val
-  try { return JSON.parse(val) } catch { return {} }
-}
+function parseObj (val) { if (!val) return {}; if (typeof val === 'object') return val; try { return JSON.parse(val) } catch { return {} } }

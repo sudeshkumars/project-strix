@@ -4,8 +4,8 @@ const db                   = require('../../shared/db')
 const { getConfig }        = require('../../shared/cache')
 const { safeSend, resolveWelcomeVars } = require('../../shared/utils')
 const { sendLog }          = require('../../shared/logRouter')
-const { EmbedBuilder }     = require('discord.js')
-const { COLORS }           = require('../../shared/embed')
+const { successCard }      = require('../../shared/components')
+const { MessageFlags }     = require('discord.js')
 const logger               = require('../../shared/logger')
 
 module.exports = {
@@ -40,13 +40,14 @@ module.exports = {
         if (config.welcome_style === 'embed') {
           const color = config.welcome_color
             ? parseInt(config.welcome_color.replace('#', ''), 16)
-            : COLORS.info
-          const embed = new EmbedBuilder()
-            .setColor(color)
-            .setDescription(text)
-            .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
-            .setTimestamp()
-          await safeSend(channel, { embeds: [embed] })
+            : 0x5865F2
+          const { buildCardPayload } = require('../../shared/components')
+          await safeSend(channel, buildCardPayload({
+            accent: color,
+            title: 'Welcome!',
+            lines: [text],
+            thumbnail: member.user.displayAvatarURL({ size: 128 })
+          }))
         } else {
           await safeSend(channel, { content: text })
         }
@@ -54,17 +55,18 @@ module.exports = {
     }
 
     // ── Join log ──────────────────────────────────────────────────────────────
-    const joinEmbed = new EmbedBuilder()
-      .setColor(COLORS.success)
-      .setTitle('Member Joined')
-      .addFields(
-        { name: 'User',         value: `${member.user.username} (\`${member.id}\`)`, inline: true },
-        { name: 'Account Age',  value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-        { name: 'Member Count', value: String(member.guild.memberCount), inline: true }
-      )
-      .setThumbnail(member.user.displayAvatarURL({ size: 64 }))
-      .setTimestamp()
-    await sendLog(client, guildId, 'member_join', { embeds: [joinEmbed] })
+    const { buildCardPayload, COLORS } = require('../../shared/components')
+    const joinPayload = buildCardPayload({
+      accent: COLORS.success,
+      title: 'Member Joined',
+      lines: [
+        `**User** \u2014 ${member.user.username} (\`${member.id}\`)`,
+        `**Account Age** \u2014 <t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
+        `**Member Count** \u2014 ${member.guild.memberCount}`
+      ],
+      thumbnail: member.user.displayAvatarURL({ size: 64 })
+    })
+    await sendLog(client, guildId, 'member_join', joinPayload)
 
     // ── DM ────────────────────────────────────────────────────────────────────
     if (config?.welcome_dm) {
@@ -82,36 +84,24 @@ async function trackInviteJoin (client, member) {
   const guild   = member.guild
   const guildId = guild.id
 
-  // Get the cached invites
   const cachedInvites = client.inviteCache.get(guildId)
   if (!cachedInvites) return
 
-  // Fetch current invites
   let currentInvites
-  try {
-    currentInvites = await guild.invites.fetch()
-  } catch { return }
+  try { currentInvites = await guild.invites.fetch() } catch { return }
 
-  // Find the invite that was used (uses increased)
   let usedInvite = null
   for (const [code, invite] of currentInvites) {
     const cachedUses = cachedInvites.get(code) || 0
-    if (invite.uses > cachedUses) {
-      usedInvite = invite
-      break
-    }
+    if (invite.uses > cachedUses) { usedInvite = invite; break }
   }
 
-  // Update cache
   const newCache = new Map()
-  for (const [code, invite] of currentInvites) {
-    newCache.set(code, invite.uses)
-  }
+  for (const [code, invite] of currentInvites) newCache.set(code, invite.uses)
   client.inviteCache.set(guildId, newCache)
 
   if (!usedInvite || !usedInvite.inviter) return
 
-  // Detect fake invite (account age < 7 days)
   const accountAge = Date.now() - member.user.createdTimestamp
   const sevenDays  = 7 * 24 * 60 * 60 * 1000
   const fake       = accountAge < sevenDays

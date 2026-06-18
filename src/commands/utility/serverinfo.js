@@ -1,9 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, ChannelType } = require('discord.js')
-const db           = require('../../../shared/db')
-const { info }     = require('../../../shared/embed')
-const { fullTime } = require('../../../shared/utils')
+const db              = require('../../../shared/db')
+const { infoCard }    = require('../../../shared/components')
+const { fullTime }    = require('../../../shared/utils')
 
 const VERIFICATION = ['None', 'Low', 'Medium', 'High', 'Very High']
 
@@ -31,7 +31,7 @@ module.exports = {
     const text     = channels.filter(c => c.type === ChannelType.GuildText).size
     const voice    = channels.filter(c => c.isVoiceBased()).size
     const cats     = channels.filter(c => c.type === ChannelType.GuildCategory).size
-    const roles    = guild.roles.cache.size - 1  // exclude @everyone
+    const roles    = guild.roles.cache.size - 1
     const emojis   = guild.emojis.cache.size
     const boosts   = guild.premiumSubscriptionCount ?? 0
     const tier     = guild.premiumTier
@@ -40,27 +40,27 @@ module.exports = {
     const totalMsg = stats.reduce((a, b) => a + (b.messages ?? 0), 0)
     const totalJoin = stats.reduce((a, b) => a + (b.joins ?? 0), 0)
 
-    const embed = info(`🏠 ${guild.name}`, null)
-      .setThumbnail(guild.iconURL({ size: 256 }))
-      .addFields(
-        { name: 'ID',           value: guild.id,                              inline: true  },
-        { name: 'Owner',        value: `<@${guild.ownerId}>`,                 inline: true  },
-        { name: 'Created',      value: fullTime(Math.floor(guild.createdTimestamp / 1000)), inline: true },
-        { name: 'Members',      value: `👥 ${humans} humans | 🤖 ${bots} bots`, inline: true },
-        { name: 'Channels',     value: `💬 ${text} text | 🔊 ${voice} voice | 📁 ${cats} cats`, inline: true },
-        { name: 'Roles',        value: String(roles),                         inline: true  },
-        { name: 'Emojis',       value: String(emojis),                        inline: true  },
-        { name: 'Boosts',       value: `${boosts} (Tier ${tier})`,            inline: true  },
-        { name: 'Verification', value: VERIFICATION[guild.verificationLevel] ?? 'Unknown', inline: true },
-        { name: '7d Activity',  value: `📨 ${totalMsg} msgs | 📥 ${totalJoin} joins`, inline: false }
-      )
+    const lines = [
+      `**ID** \u2014 ${guild.id}`,
+      `**Owner** \u2014 <@${guild.ownerId}>`,
+      `**Created** \u2014 ${fullTime(Math.floor(guild.createdTimestamp / 1000))}`,
+      `**Members** \u2014 \u{1f465} ${humans} humans | \u{1f916} ${bots} bots`,
+      `**Channels** \u2014 \u{1f4ac} ${text} text | \u{1f50a} ${voice} voice | \u{1f4c1} ${cats} cats`,
+      `**Roles** \u2014 ${roles}`,
+      `**Emojis** \u2014 ${emojis}`,
+      `**Boosts** \u2014 ${boosts} (Tier ${tier})`,
+      `**Verification** \u2014 ${VERIFICATION[guild.verificationLevel] ?? 'Unknown'}`,
+      `**7d Activity** \u2014 \u{1f4e8} ${totalMsg} msgs | \u{1f4e5} ${totalJoin} joins`
+    ]
 
-    if (guild.description) embed.setDescription(guild.description)
-    if (guild.bannerURL()) embed.setImage(guild.bannerURL({ size: 1024 }))
+    if (guild.description) lines.unshift(guild.description)
 
     const features = guild.features.slice(0, 6).map(f => `\`${f}\``).join(', ')
-    if (features) embed.addFields({ name: 'Features', value: features, inline: false })
+    if (features) lines.push(`**Features** \u2014 ${features}`)
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u{1f3e0} ${guild.name}`, lines, {
+      thumbnail: guild.iconURL({ size: 256 }) || undefined,
+      image: guild.bannerURL({ size: 1024 }) || undefined
+    }))
   }
 }

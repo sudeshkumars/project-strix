@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder } = require('discord.js')
-const { info } = require('../../../shared/embed')
+const { infoCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -12,20 +12,17 @@ module.exports = {
     .setDescription('Check bot latency and uptime'),
 
   async execute (client, interaction) {
-    const sent = await interaction.reply({ content: '🏓 Pinging...', fetchReply: true })
+    const sent = await interaction.reply({ content: '\u{1f3d3} Pinging...', fetchReply: true })
 
     const roundtrip = sent.createdTimestamp - interaction.createdTimestamp
     const ws        = client.ws.ping
     const uptime    = formatUptime(client.uptime)
 
-    const embed = info('🏓 Pong!', null)
-      .addFields(
-        { name: 'Roundtrip', value: `${roundtrip}ms`, inline: true },
-        { name: 'WebSocket', value: `${ws}ms`,        inline: true },
-        { name: 'Uptime',    value: uptime,            inline: true }
-      )
-
-    await interaction.editReply({ content: null, embeds: [embed] })
+    await interaction.editReply(infoCard('\u{1f3d3} Pong!', [
+      `**Roundtrip** \u2014 ${roundtrip}ms`,
+      `**WebSocket** \u2014 ${ws}ms`,
+      `**Uptime** \u2014 ${uptime}`
+    ]))
   }
 }
 

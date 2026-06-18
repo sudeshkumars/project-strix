@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder } = require('discord.js')
 const db                      = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
+const { successCard, errorCard, infoCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'owner',
@@ -42,13 +42,13 @@ module.exports = {
       const userId = interaction.options.getString('user_id')
       const reason = interaction.options.getString('reason') ?? 'No reason'
       db.blacklistUser(userId, reason)
-      return interaction.editReply({ embeds: [success('User Blacklisted', `User \`${userId}\` blacklisted.`)] })
+      return interaction.editReply(successCard('User Blacklisted', [`User \`${userId}\` blacklisted.`]))
     }
 
     if (sub === 'removeuser') {
       const userId = interaction.options.getString('user_id')
       db.unblacklistUser(userId)
-      return interaction.editReply({ embeds: [success('Removed', `User \`${userId}\` removed from blacklist.`)] })
+      return interaction.editReply(successCard('Removed', [`User \`${userId}\` removed from blacklist.`]))
     }
 
     if (sub === 'addguild') {
@@ -56,29 +56,30 @@ module.exports = {
       const reason  = interaction.options.getString('reason') ?? 'No reason'
       db.blacklistGuild(guildId, reason)
 
-      // Leave the guild if currently in it
       const guild = client.guilds.cache.get(guildId)
       if (guild) await guild.leave().catch(() => {})
 
-      return interaction.editReply({ embeds: [success('Guild Blacklisted', `Guild \`${guildId}\` blacklisted${guild ? ' and left' : ''}.`)] })
+      return interaction.editReply(successCard('Guild Blacklisted', [`Guild \`${guildId}\` blacklisted${guild ? ' and left' : ''}.`]))
     }
 
     if (sub === 'removeguild') {
       const guildId = interaction.options.getString('guild_id')
       db.unblacklistGuild(guildId)
-      return interaction.editReply({ embeds: [success('Removed', `Guild \`${guildId}\` removed from blacklist.`)] })
+      return interaction.editReply(successCard('Removed', [`Guild \`${guildId}\` removed from blacklist.`]))
     }
 
     if (sub === 'list') {
       const users  = db.getBlacklistedUsers()
       const guilds = db.getBlacklistedGuilds()
 
-      const embed = info('🚫 Blacklists', null)
-        .addFields(
-          { name: `Users (${users.length})`,  value: users.length  ? users.slice(0, 10).map(u => `\`${u.user_id}\` — ${u.reason}`).join('\n')  : 'None', inline: false },
-          { name: `Guilds (${guilds.length})`, value: guilds.length ? guilds.slice(0, 10).map(g => `\`${g.guild_id}\` — ${g.reason}`).join('\n') : 'None', inline: false }
-        )
-      return interaction.editReply({ embeds: [embed] })
+      const lines = [
+        `**Users (${users.length})**`,
+        users.length ? users.slice(0, 10).map(u => `\`${u.user_id}\` \u2014 ${u.reason}`).join('\n') : 'None',
+        '',
+        `**Guilds (${guilds.length})**`,
+        guilds.length ? guilds.slice(0, 10).map(g => `\`${g.guild_id}\` \u2014 ${g.reason}`).join('\n') : 'None'
+      ]
+      return interaction.editReply(infoCard('\u{1f6ab} Blacklists', lines))
     }
   }
 }

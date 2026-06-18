@@ -3,7 +3,8 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db                    = require('../../../shared/db')
 const logger                = require('../../../shared/logger')
-const { modAction, modDm }  = require('../../../shared/embed')
+const { modCard, errorCard } = require('../../../shared/components')
+const { modDm }             = require('../../../shared/embed')
 const { parseDuration, formatDuration, safeSend } = require('../../../shared/utils')
 
 module.exports = {
@@ -36,10 +37,10 @@ module.exports = {
 
     if (member) {
       if (!member.bannable) {
-        return interaction.editReply({ content: '❌ I cannot ban that member (role hierarchy).' })
+        return interaction.editReply(errorCard('Cannot Ban', ['I cannot ban that member (role hierarchy).']))
       }
       if (member.id === interaction.user.id) {
-        return interaction.editReply({ content: '❌ You cannot ban yourself.' })
+        return interaction.editReply(errorCard('Invalid', ['You cannot ban yourself.']))
       }
     }
 
@@ -48,7 +49,7 @@ module.exports = {
     let durLabel  = null
     if (durStr) {
       const secs = parseDuration(durStr)
-      if (!secs) return interaction.editReply({ content: '❌ Invalid duration format. Use e.g. `7d`, `24h`.' })
+      if (!secs) return interaction.editReply(errorCard('Invalid Duration', ['Use e.g. `7d`, `24h`.']))
       expiresAt = Math.floor(Date.now() / 1000) + secs
       durLabel  = formatDuration(secs)
     }
@@ -73,7 +74,7 @@ module.exports = {
         deleteMessageSeconds: deleteDays * 86400
       })
     } catch (e) {
-      return interaction.editReply({ content: `❌ Failed to ban: ${e.message}` })
+      return interaction.editReply(errorCard('Ban Failed', [`${e.message}`]))
     }
 
     // ── Create case ──────────────────────────────────────────────────────────
@@ -85,21 +86,22 @@ module.exports = {
     }
 
     // ── Log to case channel ──────────────────────────────────────────────────
-    const embed = modAction({
-      action:   durLabel ? 'Temp Ban' : 'Ban',
-      target,
-      mod:      interaction.user,
-      reason,
-      caseId,
-      duration: durLabel
-    })
+    const action = durLabel ? 'Temp Ban' : 'Ban'
+    const lines = [
+      `**User** \u2014 ${target.username} (\`${target.id}\`)`,
+      `**Mod** \u2014 ${interaction.user.username} (\`${interaction.user.id}\`)`,
+      `**Reason** \u2014 ${reason}`
+    ]
+    if (durLabel) lines.push(`**Duration** \u2014 ${durLabel}`)
+
+    const payload = modCard(`\u{1f528} ${action} \u2014 Case #${caseId}`, lines)
 
     if (config?.case_channel) {
       const ch = guild.channels.cache.get(config.case_channel)
-      if (ch) await safeSend(ch, { embeds: [embed] })
+      if (ch) await safeSend(ch, payload)
     }
 
-    logger.info(`[MOD] ban: ${target.id} by ${interaction.user.id} in ${guild.id} — ${reason}`)
-    await interaction.editReply({ embeds: [embed] })
+    logger.info(`[MOD] ban: ${target.id} by ${interaction.user.id} in ${guild.id} \u2014 ${reason}`)
+    await interaction.editReply(payload)
   }
 }
