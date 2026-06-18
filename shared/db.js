@@ -388,6 +388,25 @@ function migrate () {
       FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS embed_templates (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id    TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      title       TEXT,
+      description TEXT,
+      color       TEXT,
+      footer      TEXT,
+      image       TEXT,
+      thumbnail   TEXT,
+      author_name TEXT,
+      author_icon TEXT,
+      fields      TEXT DEFAULT '[]',
+      created_by  TEXT,
+      created_at  INTEGER,
+      UNIQUE(guild_id, name),
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cases_guild_user    ON cases(guild_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_warnings_guild_user ON warnings(guild_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_users_guild         ON users(guild_id);
@@ -400,6 +419,7 @@ function migrate () {
     CREATE INDEX IF NOT EXISTS idx_custom_cmds_guild   ON custom_commands(guild_id);
     CREATE INDEX IF NOT EXISTS idx_highlights_guild    ON highlights(guild_id);
     CREATE INDEX IF NOT EXISTS idx_xp_multi_guild      ON xp_multipliers(guild_id);
+    CREATE INDEX IF NOT EXISTS idx_embed_templates_guild ON embed_templates(guild_id);
   `)
 }
 
@@ -1139,6 +1159,36 @@ function deleteNote (noteId, guildId) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// EMBED TEMPLATES
+// ══════════════════════════════════════════════════════════════════
+
+function createEmbedTemplate (guildId, name, data, createdBy) {
+  return getDb().prepare(`
+    INSERT INTO embed_templates (guild_id, name, title, description, color, footer, image, thumbnail, author_name, author_icon, fields, created_by, created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    guildId, name,
+    data.title || null, data.description || null, data.color || null,
+    data.footer || null, data.image || null, data.thumbnail || null,
+    data.author_name || null, data.author_icon || null,
+    JSON.stringify(data.fields || []),
+    createdBy, Math.floor(Date.now() / 1000)
+  ).lastInsertRowid
+}
+
+function getEmbedTemplate (guildId, name) {
+  return getDb().prepare('SELECT * FROM embed_templates WHERE guild_id = ? AND name = ?').get(guildId, name)
+}
+
+function getEmbedTemplates (guildId) {
+  return getDb().prepare('SELECT * FROM embed_templates WHERE guild_id = ? ORDER BY name ASC').all(guildId)
+}
+
+function deleteEmbedTemplate (guildId, name) {
+  return getDb().prepare('DELETE FROM embed_templates WHERE guild_id = ? AND name = ?').run(guildId, name)
+}
+
+// ══════════════════════════════════════════════════════════════════
 // EXPORTS
 // ══════════════════════════════════════════════════════════════════
 
@@ -1200,5 +1250,7 @@ module.exports = {
   // temp voice
   createTempVoice, getTempVoice, deleteTempVoice, getTempVoiceByOwner,
   // mod notes
-  createNote, getNotes, deleteNote
+  createNote, getNotes, deleteNote,
+  // embed templates
+  createEmbedTemplate, getEmbedTemplate, getEmbedTemplates, deleteEmbedTemplate
 }

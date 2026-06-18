@@ -11,21 +11,35 @@ module.exports = {
 
     const title       = interaction.fields.getTextInputValue('embed_title')?.trim() || null
     const description = interaction.fields.getTextInputValue('embed_description')?.trim() || null
-    const colorStr    = interaction.fields.getTextInputValue('embed_color')?.trim() || '#5865F2'
+    const colorStr    = interaction.fields.getTextInputValue('embed_color')?.trim() || null
     const footer      = interaction.fields.getTextInputValue('embed_footer')?.trim() || null
-    const channelId   = interaction.fields.getTextInputValue('embed_channel')?.trim().replace(/\D/g, '') || null
+    const imageUrl    = interaction.fields.getTextInputValue('embed_image')?.trim() || null
 
     if (!title && !description) {
       return interaction.editReply({ embeds: [error('Empty embed', 'Provide at least a title or description.')] })
     }
 
-    const color = parseInt(colorStr.replace('#', ''), 16) || 0x5865F2
+    // Validate color
+    let color = 0x5865F2
+    if (colorStr) {
+      const hex = colorStr.replace('#', '')
+      if (!/^[0-9A-Fa-f]{6}$/.test(hex)) {
+        return interaction.editReply({ embeds: [error('Invalid Color', 'Use hex format like `#5865F2`.')] })
+      }
+      color = parseInt(hex, 16)
+    }
 
     const embed = new EmbedBuilder().setColor(color)
     if (title)       embed.setTitle(title)
     if (description) embed.setDescription(description)
     if (footer)      embed.setFooter({ text: footer })
+    if (imageUrl)    embed.setImage(imageUrl)
     embed.setTimestamp()
+
+    // The channel is stored in the custom ID: embed_builder:<channelId>
+    const customId  = interaction.customId
+    const parts     = customId.split(':')
+    const channelId = parts[1] || null
 
     const target = channelId
       ? interaction.guild?.channels.cache.get(channelId)
