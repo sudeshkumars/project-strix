@@ -12,6 +12,9 @@ module.exports = {
 
     db.incrementActivityStat(guildId, 'leaves')
 
+    // ── Invite tracking: mark as left ─────────────────────────────────────────
+    try { db.markInviteLeft(guildId, member.id) } catch {}
+
     if (!config?.goodbye_channel) return
 
     const ch = member.guild.channels.cache.get(config.goodbye_channel)

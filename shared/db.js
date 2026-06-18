@@ -407,6 +407,55 @@ function migrate () {
       FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS sticky_messages (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id   TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      content    TEXT,
+      embed      TEXT,
+      message_id TEXT,
+      counter    INTEGER DEFAULT 0,
+      threshold  INTEGER DEFAULT 5,
+      enabled    INTEGER DEFAULT 1,
+      created_by TEXT,
+      created_at INTEGER,
+      UNIQUE(guild_id, channel_id),
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS afk_users (
+      user_id    TEXT NOT NULL,
+      guild_id   TEXT NOT NULL,
+      reason     TEXT DEFAULT 'AFK',
+      set_at     INTEGER,
+      PRIMARY KEY (user_id, guild_id),
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS reminders (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    TEXT NOT NULL,
+      guild_id   TEXT,
+      channel_id TEXT,
+      content    TEXT NOT NULL,
+      remind_at  INTEGER NOT NULL,
+      dm         INTEGER DEFAULT 1,
+      fired      INTEGER DEFAULT 0,
+      created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS invite_tracking (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id    TEXT NOT NULL,
+      inviter_id  TEXT NOT NULL,
+      invited_id  TEXT NOT NULL,
+      invite_code TEXT,
+      fake        INTEGER DEFAULT 0,
+      left_after  INTEGER DEFAULT 0,
+      joined_at   INTEGER,
+      FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cases_guild_user    ON cases(guild_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_warnings_guild_user ON warnings(guild_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_users_guild         ON users(guild_id);
@@ -420,6 +469,9 @@ function migrate () {
     CREATE INDEX IF NOT EXISTS idx_highlights_guild    ON highlights(guild_id);
     CREATE INDEX IF NOT EXISTS idx_xp_multi_guild      ON xp_multipliers(guild_id);
     CREATE INDEX IF NOT EXISTS idx_embed_templates_guild ON embed_templates(guild_id);
+    CREATE INDEX IF NOT EXISTS idx_reminders_fire      ON reminders(fired, remind_at);
+    CREATE INDEX IF NOT EXISTS idx_invites_guild       ON invite_tracking(guild_id);
+    CREATE INDEX IF NOT EXISTS idx_invites_inviter     ON invite_tracking(guild_id, inviter_id);
   `)
 }
 
@@ -448,9 +500,9 @@ function deleteGuildData (guildId) {
   const tables = [
     'activity_stats','audit_log','automod_rules','bansync_guilds',
     'cases','custom_commands','giveaways','guild_config','highlights',
-    'level_roles','reputation','role_panels','scheduled_messages',
-    'suggestions','temp_punishments','temp_roles','temp_voice',
-    'tickets','users','warnings'
+    'invite_tracking','level_roles','reputation','role_panels','scheduled_messages',
+    'sticky_messages','suggestions','temp_punishments','temp_roles','temp_voice',
+    'tickets','users','warnings','afk_users'
   ]
   getDb().transaction(() => {
     for (const t of tables) getDb().prepare(`DELETE FROM ${t} WHERE guild_id = ?`).run(guildId)
@@ -1189,6 +1241,139 @@ function deleteEmbedTemplate (guildId, name) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// STICKY MESSAGES
+// ══════════════════════════════════════════════════════════════════
+
+function createSticky (guildId, channelId, content, embed, threshold, createdBy) {
+  getDb().prepare(`
+    INSERT OR REPLACE INTO sticky_messages (guild_id, channel_id, content, embed, threshold, created_by, created_at)
+    VALUES (?,?,?,?,?,?,?)
+  `).run(guildId, channelId, content, embed, threshold, createdBy, now())
+}
+
+function getSticky (guildId, channelId) {
+  return getDb().prepare('SELECT * FROM sticky_messages WHERE guild_id = ? AND channel_id = ? AND enabled = 1').get(guildId, channelId)
+}
+
+function getAllStickies (guildId) {
+  return getDb().prepare('SELECT * FROM sticky_messages WHERE guild_id = ?').all(guildId)
+}
+
+function updateSticky (guildId, channelId, fields) {
+  const keys = Object.keys(fields)
+  if (!keys.length) return
+  const set = keys.map(k => `${k} = ?`).join(', ')
+  getDb().prepare(`UPDATE sticky_messages SET ${set} WHERE guild_id = ? AND channel_id = ?`)
+    .run(...Object.values(fields), guildId, channelId)
+}
+
+function deleteSticky (guildId, channelId) {
+  getDb().prepare('DELETE FROM sticky_messages WHERE guild_id = ? AND channel_id = ?').run(guildId, channelId)
+}
+
+function incrementStickyCounter (guildId, channelId) {
+  getDb().prepare('UPDATE sticky_messages SET counter = counter + 1 WHERE guild_id = ? AND channel_id = ? AND enabled = 1')
+    .run(guildId, channelId)
+}
+
+function resetStickyCounter (guildId, channelId) {
+  getDb().prepare('UPDATE sticky_messages SET counter = 0 WHERE guild_id = ? AND channel_id = ?').run(guildId, channelId)
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AFK
+// ══════════════════════════════════════════════════════════════════
+
+function setAfk (userId, guildId, reason) {
+  getDb().prepare(`
+    INSERT OR REPLACE INTO afk_users (user_id, guild_id, reason, set_at) VALUES (?,?,?,?)
+  `).run(userId, guildId, reason || 'AFK', now())
+}
+
+function getAfk (userId, guildId) {
+  return getDb().prepare('SELECT * FROM afk_users WHERE user_id = ? AND guild_id = ?').get(userId, guildId)
+}
+
+function removeAfk (userId, guildId) {
+  getDb().prepare('DELETE FROM afk_users WHERE user_id = ? AND guild_id = ?').run(userId, guildId)
+}
+
+function getAfkUsers (guildId) {
+  return getDb().prepare('SELECT * FROM afk_users WHERE guild_id = ?').all(guildId)
+}
+
+// ══════════════════════════════════════════════════════════════════
+// REMINDERS
+// ══════════════════════════════════════════════════════════════════
+
+function createReminder (userId, guildId, channelId, content, remindAt, dm) {
+  return getDb().prepare(`
+    INSERT INTO reminders (user_id, guild_id, channel_id, content, remind_at, dm, created_at)
+    VALUES (?,?,?,?,?,?,?)
+  `).run(userId, guildId, channelId, content, remindAt, dm ? 1 : 0, now()).lastInsertRowid
+}
+
+function getExpiredReminders () {
+  return getDb().prepare('SELECT * FROM reminders WHERE fired = 0 AND remind_at <= ?').all(now())
+}
+
+function markReminderFired (id) {
+  getDb().prepare('UPDATE reminders SET fired = 1 WHERE id = ?').run(id)
+}
+
+function getUserReminders (userId) {
+  return getDb().prepare('SELECT * FROM reminders WHERE user_id = ? AND fired = 0 ORDER BY remind_at ASC').all(userId)
+}
+
+function deleteReminder (id, userId) {
+  getDb().prepare('DELETE FROM reminders WHERE id = ? AND user_id = ?').run(id, userId)
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INVITE TRACKING
+// ══════════════════════════════════════════════════════════════════
+
+function trackInvite (guildId, inviterId, invitedId, inviteCode, fake) {
+  getDb().prepare(`
+    INSERT INTO invite_tracking (guild_id, inviter_id, invited_id, invite_code, fake, joined_at)
+    VALUES (?,?,?,?,?,?)
+  `).run(guildId, inviterId, invitedId, inviteCode, fake ? 1 : 0, now())
+}
+
+function getInviterStats (guildId, userId) {
+  return getDb().prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN fake = 0 AND left_after = 0 THEN 1 ELSE 0 END) AS real,
+      SUM(CASE WHEN fake = 1 THEN 1 ELSE 0 END) AS fake,
+      SUM(CASE WHEN left_after = 1 THEN 1 ELSE 0 END) AS left
+    FROM invite_tracking WHERE guild_id = ? AND inviter_id = ?
+  `).get(guildId, userId)
+}
+
+function getInviteLeaderboard (guildId, limit) {
+  return getDb().prepare(`
+    SELECT inviter_id,
+      COUNT(*) AS total,
+      SUM(CASE WHEN fake = 0 AND left_after = 0 THEN 1 ELSE 0 END) AS real,
+      SUM(CASE WHEN fake = 1 THEN 1 ELSE 0 END) AS fake,
+      SUM(CASE WHEN left_after = 1 THEN 1 ELSE 0 END) AS left
+    FROM invite_tracking WHERE guild_id = ?
+    GROUP BY inviter_id ORDER BY real DESC LIMIT ?
+  `).all(guildId, limit)
+}
+
+function markInviteLeft (guildId, userId) {
+  getDb().prepare('UPDATE invite_tracking SET left_after = 1 WHERE guild_id = ? AND invited_id = ?')
+    .run(guildId, userId)
+}
+
+function getInvitesByUser (guildId, inviterId) {
+  return getDb().prepare('SELECT * FROM invite_tracking WHERE guild_id = ? AND inviter_id = ? ORDER BY joined_at DESC')
+    .all(guildId, inviterId)
+}
+
+// ══════════════════════════════════════════════════════════════════
 // EXPORTS
 // ══════════════════════════════════════════════════════════════════
 
@@ -1252,5 +1437,14 @@ module.exports = {
   // mod notes
   createNote, getNotes, deleteNote,
   // embed templates
-  createEmbedTemplate, getEmbedTemplate, getEmbedTemplates, deleteEmbedTemplate
+  createEmbedTemplate, getEmbedTemplate, getEmbedTemplates, deleteEmbedTemplate,
+  // sticky messages
+  createSticky, getSticky, getAllStickies, updateSticky, deleteSticky,
+  incrementStickyCounter, resetStickyCounter,
+  // afk
+  setAfk, getAfk, removeAfk, getAfkUsers,
+  // reminders
+  createReminder, getExpiredReminders, markReminderFired, getUserReminders, deleteReminder,
+  // invite tracking
+  trackInvite, getInviterStats, getInviteLeaderboard, markInviteLeft, getInvitesByUser
 }

@@ -6,6 +6,7 @@ const { safeSend, resolveWelcomeVars } = require('../../shared/utils')
 const { sendLog }          = require('../../shared/logRouter')
 const { EmbedBuilder }     = require('discord.js')
 const { COLORS }           = require('../../shared/embed')
+const logger               = require('../../shared/logger')
 
 module.exports = {
   name: 'guildMemberAdd',
@@ -15,6 +16,11 @@ module.exports = {
 
     db.upsertUser(member.id, guildId)
     db.incrementActivityStat(guildId, 'joins')
+
+    // ── Invite tracking ───────────────────────────────────────────────────────
+    trackInviteJoin(client, member).catch(e =>
+      logger.debug(`inviteTrack guildMemberAdd: ${e.message}`)
+    )
 
     // ── Autoroles ─────────────────────────────────────────────────────────────
     const autoroles = safeParseArray(config?.welcome_autorole)
@@ -69,6 +75,48 @@ module.exports = {
       await safeSend(member.user, { content: dmMsg })
     }
   }
+}
+
+// ─── Invite tracking helper ───────────────────────────────────────────────────
+async function trackInviteJoin (client, member) {
+  const guild   = member.guild
+  const guildId = guild.id
+
+  // Get the cached invites
+  const cachedInvites = client.inviteCache.get(guildId)
+  if (!cachedInvites) return
+
+  // Fetch current invites
+  let currentInvites
+  try {
+    currentInvites = await guild.invites.fetch()
+  } catch { return }
+
+  // Find the invite that was used (uses increased)
+  let usedInvite = null
+  for (const [code, invite] of currentInvites) {
+    const cachedUses = cachedInvites.get(code) || 0
+    if (invite.uses > cachedUses) {
+      usedInvite = invite
+      break
+    }
+  }
+
+  // Update cache
+  const newCache = new Map()
+  for (const [code, invite] of currentInvites) {
+    newCache.set(code, invite.uses)
+  }
+  client.inviteCache.set(guildId, newCache)
+
+  if (!usedInvite || !usedInvite.inviter) return
+
+  // Detect fake invite (account age < 7 days)
+  const accountAge = Date.now() - member.user.createdTimestamp
+  const sevenDays  = 7 * 24 * 60 * 60 * 1000
+  const fake       = accountAge < sevenDays
+
+  db.trackInvite(guildId, usedInvite.inviter.id, member.id, usedInvite.code, fake)
 }
 
 function safeParseArray (val) {

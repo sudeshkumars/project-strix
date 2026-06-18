@@ -61,6 +61,7 @@ client.modals     = new Collection()
 client.menus      = new Collection()
 client.cooldowns  = new Collection()
 client.guildCache = new Map()
+client.inviteCache = new Map()
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 commandHandler(client)

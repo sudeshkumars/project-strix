@@ -14,6 +14,20 @@ module.exports = {
     // Load guild configs into cache
     loadAllConfigs(client)
 
+    // Load invite cache for all guilds
+    for (const [guildId, guild] of client.guilds.cache) {
+      try {
+        const invites = await guild.invites.fetch()
+        const cache = new Map()
+        for (const [code, invite] of invites) {
+          cache.set(code, invite.uses)
+        }
+        client.inviteCache.set(guildId, cache)
+      } catch {
+        // Guild may not grant invite permissions
+      }
+    }
+
     // Clean dead webhooks
     try {
       const webhooks = db.getAllWebhooks()
