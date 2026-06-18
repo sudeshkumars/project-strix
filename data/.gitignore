@@ -1,0 +1,10 @@
+# Ignore database and backups — never commit these
+stryx.db
+stryx.db-wal
+stryx.db-shm
+cmd_hash.txt
+backups/*.db
+transcripts/*.html
+
+# Keep folder structure
+!.gitkeep

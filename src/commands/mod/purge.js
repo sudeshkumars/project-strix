@@ -1,0 +1,60 @@
+'use strict'
+
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
+const { success, error } = require('../../../shared/embed')
+
+const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000
+
+module.exports = {
+  permLevel: 'mod',
+  guildOnly: true,
+  cooldown: 5,
+
+  data: new SlashCommandBuilder()
+    .setName('purge')
+    .setDescription('Bulk delete messages')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .addIntegerOption(o => o.setName('amount').setDescription('Messages to delete (1-100)').setMinValue(1).setMaxValue(100).setRequired(true))
+    .addUserOption(o => o.setName('user').setDescription('Only delete messages from this user').setRequired(false))
+    .addStringOption(o => o.setName('filter').setDescription('Only delete messages containing this text').setRequired(false)),
+
+  async execute (client, interaction) {
+    await interaction.deferReply({ ephemeral: true })
+
+    const amount   = interaction.options.getInteger('amount')
+    const user     = interaction.options.getUser('user')
+    const filter   = interaction.options.getString('filter')?.toLowerCase()
+    const channel  = interaction.channel
+
+    let messages
+    try {
+      messages = await channel.messages.fetch({ limit: user || filter ? 100 : amount })
+    } catch {
+      return interaction.editReply({ embeds: [error('Error', 'Failed to fetch messages.')] })
+    }
+
+    // Filter out messages older than 14 days (Discord limitation)
+    const now = Date.now()
+    let filtered = messages.filter(m => (now - m.createdTimestamp) < TWO_WEEKS)
+
+    if (user)   filtered = filtered.filter(m => m.author.id === user.id)
+    if (filter) filtered = filtered.filter(m => m.content.toLowerCase().includes(filter))
+
+    const toDelete = filtered.first(amount)
+
+    if (!toDelete.length) {
+      return interaction.editReply({ embeds: [error('Nothing to delete', 'No matching messages found (messages older than 14 days cannot be bulk deleted).')] })
+    }
+
+    let deleted
+    try {
+      const result = await channel.bulkDelete(toDelete, true)
+      deleted = result.size
+    } catch (e) {
+      return interaction.editReply({ embeds: [error('Error', `Bulk delete failed: ${e.message}`)] })
+    }
+
+    const embed = success('Messages Purged', `Deleted **${deleted}** message${deleted !== 1 ? 's' : ''}.`)
+    await interaction.editReply({ embeds: [embed] })
+  }
+}
