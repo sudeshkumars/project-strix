@@ -1,7 +1,7 @@
 'use strict'
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js')
-const { COLORS } = require('../../../shared/embed')
+const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags } = require('discord.js')
+const { buildCard, COLORS } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -31,23 +31,30 @@ module.exports = {
     // ── Single command ────────────────────────────────────────────────────────
     if (cmdName) {
       const cmd = client.commands.get(cmdName)
-      if (!cmd) return interaction.editReply({ content: `❌ Command \`${cmdName}\` not found.` })
-
-      const embed = new EmbedBuilder()
-        .setColor(COLORS.info)
-        .setTitle(`/${cmd.data.name}`)
-        .setDescription(cmd.data.description ?? 'No description.')
-        .addFields(
-          { name: 'Permission', value: cmd.permLevel ?? 'user',       inline: true },
-          { name: 'Cooldown',   value: cmd.cooldown ? `${cmd.cooldown}s` : 'None', inline: true },
-          { name: 'Guild only', value: cmd.guildOnly ? 'Yes' : 'No',  inline: true }
-        )
-
-      if (cmd.aliases?.length) {
-        embed.addFields({ name: 'Aliases', value: cmd.aliases.join(', '), inline: false })
+      if (!cmd) {
+        const card = buildCard({
+          accent: 'error',
+          title: 'Not Found',
+          lines: [`Command \`${cmdName}\` not found.`]
+        })
+        return interaction.editReply({ components: [card], flags: MessageFlags.IsComponentsV2 })
       }
 
-      return interaction.editReply({ embeds: [embed] })
+      const lines = [
+        `**Permission** \u2014 ${cmd.permLevel ?? 'user'}`,
+        `**Cooldown** \u2014 ${cmd.cooldown ? `${cmd.cooldown}s` : 'None'}`,
+        `**Guild only** \u2014 ${cmd.guildOnly ? 'Yes' : 'No'}`
+      ]
+      if (cmd.aliases?.length) lines.push(`**Aliases** \u2014 ${cmd.aliases.join(', ')}`)
+      if (cmd.data.description) lines.unshift(cmd.data.description)
+
+      const card = buildCard({
+        accent: 'info',
+        title: `/${cmd.data.name}`,
+        lines
+      })
+
+      return interaction.editReply({ components: [card], flags: MessageFlags.IsComponentsV2 })
     }
 
     // ── Category overview ─────────────────────────────────────────────────────
@@ -59,32 +66,23 @@ module.exports = {
     }
 
     const ICONS = {
-      mod:       '🔨', automod:   '🛡️', tickets: '🎫',
-      roles:     '🎭', levels:    '⭐', community: '👥',
-      tags:      '🏷️', scheduler: '🕐', config:  '⚙️',
-      utility:   '🔧', unique:    '✨', owner:   '👑',
-      misc:      '📦'
+      mod:       '\u{1f528}', automod:   '\u{1f6e1}\ufe0f', tickets: '\u{1f3ab}',
+      roles:     '\u{1f3ad}', levels:    '\u2b50', community: '\u{1f465}',
+      tags:      '\u{1f3f7}\ufe0f', scheduler: '\u{1f550}', config:  '\u2699\ufe0f',
+      utility:   '\u{1f527}', unique:    '\u2728', owner:   '\u{1f451}',
+      misc:      '\u{1f4e6}'
     }
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.info)
-      .setTitle('📖 Stryx Commands')
-      .setDescription('Select a category below, or use `/help <command>` for details.')
-      .setFooter({ text: `${client.commands.size} commands loaded` })
-
+    const bodyLines = ['Select a category below, or use `/help <command>` for details.', '']
     for (const [cat, cmds] of [...categories.entries()].sort()) {
-      embed.addFields({
-        name:  `${ICONS[cat] ?? '📦'} ${capitalise(cat)} (${cmds.length})`,
-        value: cmds.map(c => `\`${c}\``).join(', '),
-        inline: false
-      })
+      bodyLines.push(`${ICONS[cat] ?? '\u{1f4e6}'} **${capitalise(cat)}** (${cmds.length}) \u2014 ${cmds.map(c => `\`${c}\``).join(', ')}`)
     }
 
     // Dropdown for category detail
     const options = [...categories.keys()].slice(0, 25).map(cat => ({
       label: capitalise(cat),
       value: cat,
-      emoji: ICONS[cat] ?? '📦'
+      emoji: ICONS[cat] ?? '\u{1f4e6}'
     }))
 
     const row = new ActionRowBuilder().addComponents(
@@ -94,12 +92,20 @@ module.exports = {
         .addOptions(options)
     )
 
-    return interaction.editReply({ embeds: [embed], components: [row] })
+    const card = buildCard({
+      accent: 'info',
+      title: '\u{1f4d6} Stryx Commands',
+      lines: bodyLines,
+      subtext: `${client.commands.size} commands loaded`
+    })
+
+    card.addActionRowComponents(row)
+
+    return interaction.editReply({ components: [card], flags: MessageFlags.IsComponentsV2 })
   }
 }
 
 function getCategoryFromPath (cmd) {
-  // Walk require.cache to find the file path for this command
   const name = cmd.data?.name
   if (!name) return null
 
@@ -107,7 +113,6 @@ function getCategoryFromPath (cmd) {
     if (!filePath.includes(`commands${require('path').sep}`)) continue
     if (!filePath.endsWith(`${name}.js`)) continue
 
-    // Extract category folder name from path
     const parts = filePath.split(require('path').sep)
     const cmdIdx = parts.lastIndexOf('commands')
     if (cmdIdx !== -1 && parts[cmdIdx + 1] !== `${name}.js`) {

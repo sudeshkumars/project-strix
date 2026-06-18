@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder } = require('discord.js')
 const db                      = require('../../../shared/db')
-const { success, error, info } = require('../../../shared/embed')
+const { successCard, errorCard, infoCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -38,20 +38,19 @@ module.exports = {
       const month = interaction.options.getInteger('month')
       const day   = interaction.options.getInteger('day')
 
-      // Basic date validation
       const date = new Date(2000, month - 1, day)
       if (date.getMonth() !== month - 1) {
-        return interaction.editReply({ embeds: [error('Invalid date', `Day ${day} is not valid for month ${month}.`)] })
+        return interaction.editReply(errorCard('Invalid date', [`Day ${day} is not valid for month ${month}.`]))
       }
 
       const key = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       db.updateUser(userId, guildId, { birthday: key })
-      return interaction.editReply({ embeds: [success('Birthday Set', `Your birthday is set to **${key}**. 🎂`)] })
+      return interaction.editReply(successCard('Birthday Set', [`Your birthday is set to **${key}**. \u{1f382}`]))
     }
 
     if (sub === 'remove') {
       db.updateUser(userId, guildId, { birthday: null })
-      return interaction.editReply({ embeds: [success('Birthday Removed', 'Your birthday has been removed.')] })
+      return interaction.editReply(successCard('Birthday Removed', ['Your birthday has been removed.']))
     }
 
     if (sub === 'check') {
@@ -60,14 +59,14 @@ module.exports = {
       const row = db.getUser(target.id, guildId)
 
       if (!row?.birthday) {
-        return interaction.editReply({ content: `${target.tag} has not set their birthday.` })
+        return interaction.editReply(infoCard('\u{1f382} Birthday', [`${target.tag} has not set their birthday.`]))
       }
 
       const [m, d] = row.birthday.split('-')
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
       const label  = `${months[parseInt(m) - 1]} ${parseInt(d)}`
 
-      return interaction.editReply({ embeds: [info('🎂 Birthday', `${target}'s birthday is **${label}**.`)] })
+      return interaction.editReply(infoCard('\u{1f382} Birthday', [`${target}'s birthday is **${label}**.`]))
     }
   }
 }

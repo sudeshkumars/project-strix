@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const { success, error } = require('../../../shared/embed')
+const { successCard, errorCard } = require('../../../shared/components')
 
 const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000
 
@@ -30,10 +30,9 @@ module.exports = {
     try {
       messages = await channel.messages.fetch({ limit: user || filter ? 100 : amount })
     } catch {
-      return interaction.editReply({ embeds: [error('Error', 'Failed to fetch messages.')] })
+      return interaction.editReply(errorCard('Error', ['Failed to fetch messages.']))
     }
 
-    // Filter out messages older than 14 days (Discord limitation)
     const now = Date.now()
     let filtered = messages.filter(m => (now - m.createdTimestamp) < TWO_WEEKS)
 
@@ -43,7 +42,7 @@ module.exports = {
     const toDelete = filtered.first(amount)
 
     if (!toDelete.length) {
-      return interaction.editReply({ embeds: [error('Nothing to delete', 'No matching messages found (messages older than 14 days cannot be bulk deleted).')] })
+      return interaction.editReply(errorCard('Nothing to delete', ['No matching messages found (messages older than 14 days cannot be bulk deleted).']))
     }
 
     let deleted
@@ -51,10 +50,9 @@ module.exports = {
       const result = await channel.bulkDelete(toDelete, true)
       deleted = result.size
     } catch (e) {
-      return interaction.editReply({ embeds: [error('Error', `Bulk delete failed: ${e.message}`)] })
+      return interaction.editReply(errorCard('Error', [`Bulk delete failed: ${e.message}`]))
     }
 
-    const embed = success('Messages Purged', `Deleted **${deleted}** message${deleted !== 1 ? 's' : ''}.`)
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(successCard('Messages Purged', [`Deleted **${deleted}** message${deleted !== 1 ? 's' : ''}.`]))
   }
 }

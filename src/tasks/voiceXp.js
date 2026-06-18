@@ -46,6 +46,16 @@ module.exports = {
           const updated = db.addXp(member.id, guild.id, amount)
           db.addVoiceMinutes(member.id, guild.id, 5)
 
+          // Assign voice roles based on total voice minutes
+          const userRow = db.getUser(member.id, guild.id)
+          const totalMinutes = userRow?.voice_minutes ?? 0
+          const voiceRoles = db.getVoiceRoles(guild.id)
+          for (const vr of voiceRoles.filter(r => r.minutes <= totalMinutes)) {
+            if (!member.roles.cache.has(vr.role_id)) {
+              try { await member.roles.add(vr.role_id, `Voice activity reward (${vr.minutes} min)`) } catch {}
+            }
+          }
+
           const { level } = calcLevel(updated.xp)
           if (level !== prevLv) {
             db.setLevel(member.id, guild.id, level)

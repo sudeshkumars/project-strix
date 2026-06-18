@@ -6,6 +6,9 @@ const logger             = require('../../shared/logger')
 const { handleXp }          = require('./xpHandler')
 const { checkHighlights }   = require('./highlightWatcher')
 const db                    = require('../../shared/db')
+const automodEvent          = require('./automod/automodEngine')
+const { EmbedBuilder }      = require('discord.js')
+const { COLORS }            = require('../../shared/embed')
 
 module.exports = {
   name: 'messageCreate',
@@ -18,8 +21,10 @@ module.exports = {
     const prefix = config?.prefix ?? '!'
 
     // ── Automod (runs regardless of prefix) ──────────────────────────────────
-    const automodEvent = require('./automod/automodEngine')
     await automodEvent.execute(client, message, config).catch(() => {})
+
+    // ── AFK system ────────────────────────────────────────────────────────────
+    handleAfk(client, message).catch(() => {})
 
     // ── XP grant ──────────────────────────────────────────────────────────────
     await handleXp(client, message, config).catch(() => {})
@@ -31,7 +36,10 @@ module.exports = {
     await checkHighlights(client, message).catch(() => {})
 
     // ── Auto-responses ────────────────────────────────────────────────────────
-    checkAutoResponses(client, message, guildId).catch(() => {})
+    checkAutoResponses(client, message, message.guild.id).catch(() => {})
+
+    // ── Sticky messages ───────────────────────────────────────────────────────
+    handleSticky(client, message).catch(() => {})
 
     // ── Prefix command check ──────────────────────────────────────────────────
     if (!message.content.startsWith(prefix)) return
@@ -57,8 +65,76 @@ module.exports = {
       logger.command(name, message.author.id, message.guild.id)
     } catch (e) {
       logger.error(`Prefix cmd ${name} error:`, e)
-      message.reply({ content: '❌ An error occurred running that command.' }).catch(() => {})
+      message.reply({ content: '\u274c An error occurred running that command.' }).catch(() => {})
     }
+  }
+}
+
+// ─── AFK handler ──────────────────────────────────────────────────────────────
+async function handleAfk (client, message) {
+  const guildId = message.guild.id
+  const userId  = message.author.id
+
+  // Check if the author is AFK - remove their AFK
+  const authorAfk = db.getAfk(userId, guildId)
+  if (authorAfk) {
+    db.removeAfk(userId, guildId)
+    message.reply({ content: 'Welcome back! Your AFK has been removed.' }).catch(() => {})
+  }
+
+  // Check if any mentioned users are AFK
+  if (message.mentions.users.size > 0) {
+    for (const [mentionedId] of message.mentions.users) {
+      const afk = db.getAfk(mentionedId, guildId)
+      if (afk) {
+        message.reply({
+          content: `<@${mentionedId}> is AFK: ${afk.reason} (since <t:${afk.set_at}:R>)`,
+          allowedMentions: { parse: [] }
+        }).catch(() => {})
+        break // Only notify for first AFK mention to avoid spam
+      }
+    }
+  }
+}
+
+// ─── Sticky message handler ──────────────────────────────────────────────────
+async function handleSticky (client, message) {
+  const guildId   = message.guild.id
+  const channelId = message.channel.id
+
+  const sticky = db.getSticky(guildId, channelId)
+  if (!sticky) return
+
+  db.incrementStickyCounter(guildId, channelId)
+
+  // Re-fetch to get updated counter
+  const updated = db.getSticky(guildId, channelId)
+  if (!updated || updated.counter < updated.threshold) return
+
+  // Delete old sticky message
+  if (updated.message_id) {
+    try {
+      const oldMsg = await message.channel.messages.fetch(updated.message_id).catch(() => null)
+      if (oldMsg) await oldMsg.delete().catch(() => {})
+    } catch {}
+  }
+
+  // Re-send the sticky
+  let newMsg
+  if (updated.embed) {
+    const embed = new EmbedBuilder()
+      .setColor(COLORS.info)
+      .setDescription(updated.content || 'Sticky message')
+      .setFooter({ text: '\ud83d\udccc Sticky Message' })
+    newMsg = await message.channel.send({ embeds: [embed] }).catch(() => null)
+  } else {
+    newMsg = await message.channel.send({ content: `\ud83d\udccc ${updated.content}` }).catch(() => null)
+  }
+
+  // Reset counter and update message_id
+  db.resetStickyCounter(guildId, channelId)
+  if (newMsg) {
+    db.updateSticky(guildId, channelId, { message_id: newMsg.id })
   }
 }
 
@@ -66,7 +142,7 @@ module.exports = {
 async function checkAutoResponses (client, message, guildId) {
   const rows = db.getDb().prepare(`
     SELECT * FROM custom_commands
-    WHERE guild_id = ? AND type = 'autoresponse' AND cooldown != 1
+    WHERE guild_id = ? AND type = 'autoresponse'
   `).all(guildId)
   if (!rows.length) return
 

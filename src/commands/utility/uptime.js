@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder } = require('discord.js')
-const { info }                = require('../../../shared/embed')
+const { infoCard }            = require('../../../shared/components')
 const { fullTime }            = require('../../../shared/utils')
 
 module.exports = {
@@ -17,15 +17,11 @@ module.exports = {
     const uptimeMs   = client.uptime ?? 0
     const startedAt  = Math.floor((Date.now() - uptimeMs) / 1000)
 
-    const embed = info('⏱️ Uptime', null)
-      .addFields(
-        { name: 'Online Since', value: fullTime(startedAt),      inline: true },
-        { name: 'Duration',     value: formatUptime(uptimeMs),   inline: true },
-        { name: 'WebSocket',    value: `${client.ws.ping}ms`,    inline: true }
-      )
-      .setTimestamp()
-
-    await interaction.reply({ embeds: [embed], ephemeral: false })
+    await interaction.reply(infoCard('\u23f1\ufe0f Uptime', [
+      `**Online Since** \u2014 ${fullTime(startedAt)}`,
+      `**Duration** \u2014 ${formatUptime(uptimeMs)}`,
+      `**WebSocket** \u2014 ${client.ws.ping}ms`
+    ]))
   }
 }
 

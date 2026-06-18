@@ -2,7 +2,8 @@
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db                    = require('../../../shared/db')
-const { modAction, modDm }  = require('../../../shared/embed')
+const { modCard, errorCard } = require('../../../shared/components')
+const { modDm }             = require('../../../shared/embed')
 const { safeSend }          = require('../../../shared/utils')
 
 module.exports = {
@@ -29,10 +30,10 @@ module.exports = {
 
     let member
     try { member = await guild.members.fetch(target.id) } catch {
-      return interaction.editReply({ content: '❌ Member not found.' })
+      return interaction.editReply(errorCard('Not found', ['Member not found.']))
     }
 
-    if (member.id === interaction.user.id) return interaction.editReply({ content: '❌ You cannot warn yourself.' })
+    if (member.id === interaction.user.id) return interaction.editReply(errorCard('Invalid', ['You cannot warn yourself.']))
 
     const caseId   = db.createCase(guild.id, target.id, interaction.user.id, 'warn', reason)
     const warnId   = db.createWarning(guild.id, target.id, interaction.user.id, reason, points, caseId)
@@ -46,18 +47,18 @@ module.exports = {
       })
     }
 
-    const embed = modAction({
-      action:    'Warn',
-      target,
-      mod:       interaction.user,
-      reason,
-      caseId,
-      warnCount: totalPts
-    })
+    const lines = [
+      `**User** \u2014 ${target.username} (\`${target.id}\`)`,
+      `**Mod** \u2014 ${interaction.user.username} (\`${interaction.user.id}\`)`,
+      `**Reason** \u2014 ${reason}`,
+      `**Total Warn Points** \u2014 ${totalPts}`
+    ]
+
+    const payload = modCard(`\u{1f528} Warn \u2014 Case #${caseId}`, lines)
 
     if (config?.case_channel) {
       const ch = guild.channels.cache.get(config.case_channel)
-      if (ch) await safeSend(ch, { embeds: [embed] })
+      if (ch) await safeSend(ch, payload)
     }
 
     // ── Threshold auto-action ────────────────────────────────────────────────
@@ -65,11 +66,11 @@ module.exports = {
       const ch = config?.mod_channel ? guild.channels.cache.get(config.mod_channel) : null
       if (ch) {
         await safeSend(ch, {
-          content: `⚠️ <@${target.id}> has reached **${totalPts} warning points** (threshold: ${threshold}). Consider escalating.`
+          content: `\u26a0\ufe0f <@${target.id}> has reached **${totalPts} warning points** (threshold: ${threshold}). Consider escalating.`
         })
       }
     }
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(payload)
   }
 }

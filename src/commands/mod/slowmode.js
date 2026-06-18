@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const { success, error } = require('../../../shared/embed')
+const { successCard, errorCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'mod',
@@ -23,13 +23,13 @@ module.exports = {
     try {
       await channel.setRateLimitPerUser(secs, `Slowmode set by ${interaction.user.tag}`)
     } catch (e) {
-      return interaction.editReply({ embeds: [error('Error', e.message)] })
+      return interaction.editReply(errorCard('Error', [e.message]))
     }
 
     const msg = secs === 0
       ? `Slowmode disabled in ${channel}.`
       : `Slowmode set to **${secs}s** in ${channel}.`
 
-    await interaction.editReply({ embeds: [success('Slowmode Updated', msg)] })
+    await interaction.editReply(successCard('Slowmode Updated', [msg]))
   }
 }

@@ -1,7 +1,7 @@
 'use strict'
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js')
-const { COLORS, error } = require('../../../shared/embed')
+const { SlashCommandBuilder } = require('discord.js')
+const { infoCard, errorCard, buildCardPayload } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -27,23 +27,19 @@ module.exports = {
     if (sub === 'user') {
       const target = interaction.options.getUser('user') ?? interaction.user
 
-      // Must fetch to get banner
       const fetched = await client.users.fetch(target.id, { force: true }).catch(() => null)
-      if (!fetched) return interaction.editReply({ embeds: [error('Failed', 'Could not fetch user.')] })
+      if (!fetched) return interaction.editReply(errorCard('Failed', ['Could not fetch user.']))
 
       const bannerUrl = fetched.bannerURL({ size: 1024, extension: 'png' })
         ?? fetched.bannerURL({ size: 1024 })
 
       if (!bannerUrl) {
-        // Show accent color instead
         const hex = fetched.accentColor?.toString(16).padStart(6, '0') ?? '5865F2'
-        return interaction.editReply({
-          embeds: [new EmbedBuilder()
-            .setColor(parseInt(hex, 16))
-            .setTitle(`🎨 ${fetched.tag}'s Profile`)
-            .setDescription(`No banner set.\n**Accent color:** \`#${hex}\``)
-          ]
-        })
+        return interaction.editReply(buildCardPayload({
+          accent: parseInt(hex, 16),
+          title: `\u{1f3a8} ${fetched.tag}'s Profile`,
+          lines: [`No banner set.`, `**Accent color** \u2014 \`#${hex}\``]
+        }))
       }
 
       const isGif = bannerUrl.includes('a_')
@@ -51,20 +47,16 @@ module.exports = {
         `[PNG](${bannerUrl.replace(/\.(png|gif|webp)/, '.png')})`,
         `[WebP](${bannerUrl.replace(/\.(png|gif|webp)/, '.webp')})`,
         isGif ? `[GIF](${bannerUrl.replace(/\.(png|gif|webp)/, '.gif')})` : null
-      ].filter(Boolean).join(' • ')
+      ].filter(Boolean).join(' \u2022 ')
 
-      const embed = new EmbedBuilder()
-        .setColor(COLORS.info)
-        .setTitle(`🖼️ ${fetched.tag}'s Banner`)
-        .setImage(isGif ? bannerUrl.replace('.png', '.gif') : bannerUrl)
-        .setDescription(links)
-
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(infoCard(`\u{1f5bc}\ufe0f ${fetched.tag}'s Banner`, [links], {
+        image: isGif ? bannerUrl.replace('.png', '.gif') : bannerUrl
+      }))
     }
 
     if (sub === 'server') {
       if (!interaction.guild) {
-        return interaction.editReply({ embeds: [error('No guild', 'This subcommand only works in a server.')] })
+        return interaction.editReply(errorCard('No guild', ['This subcommand only works in a server.']))
       }
 
       const guild      = await interaction.guild.fetch()
@@ -73,25 +65,17 @@ module.exports = {
       const discoverUrl = guild.discoverySplashURL?.({ size: 1024 })
 
       if (!bannerUrl && !splashUrl) {
-        return interaction.editReply({ content: `**${guild.name}** has no banner or splash set.` })
+        return interaction.editReply(infoCard(`\u{1f5bc}\ufe0f ${guild.name}`, [`**${guild.name}** has no banner or splash set.`]))
       }
 
-      const embed = new EmbedBuilder()
-        .setColor(COLORS.info)
-        .setTitle(`🖼️ ${guild.name}`)
+      const lines = []
+      if (bannerUrl)   lines.push(`**Banner** \u2014 [View](${bannerUrl})`)
+      if (splashUrl)   lines.push(`**Invite Splash** \u2014 [View](${splashUrl})`)
+      if (discoverUrl) lines.push(`**Discovery Splash** \u2014 [View](${discoverUrl})`)
 
-      if (bannerUrl) {
-        embed.setImage(bannerUrl)
-        embed.addFields({ name: 'Banner', value: `[View](${bannerUrl})`, inline: true })
-      }
-      if (splashUrl) {
-        embed.addFields({ name: 'Invite Splash', value: `[View](${splashUrl})`, inline: true })
-      }
-      if (discoverUrl) {
-        embed.addFields({ name: 'Discovery Splash', value: `[View](${discoverUrl})`, inline: true })
-      }
-
-      return interaction.editReply({ embeds: [embed] })
+      return interaction.editReply(infoCard(`\u{1f5bc}\ufe0f ${guild.name}`, lines, {
+        image: bannerUrl || undefined
+      }))
     }
   }
 }

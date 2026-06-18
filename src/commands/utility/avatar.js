@@ -1,7 +1,7 @@
 'use strict'
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js')
-const { COLORS } = require('../../../shared/embed')
+const { SlashCommandBuilder } = require('discord.js')
+const { infoCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -24,21 +24,18 @@ module.exports = {
     const globalUrl = target.displayAvatarURL({ size: 1024, extension: 'png' })
     const serverUrl = member?.avatarURL({ size: 1024, extension: 'png' }) ?? null
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.info)
-      .setTitle(`🖼️ ${target.tag}'s Avatar`)
-      .setImage(serverUrl ?? globalUrl)
-
     const links = [`[PNG](${globalUrl.replace('png', 'png')})`, `[WebP](${globalUrl.replace('png', 'webp')})`]
     if (target.displayAvatarURL().includes('a_')) links.push(`[GIF](${globalUrl.replace('png', 'gif')})`)
 
-    embed.setDescription(links.join(' • '))
+    const lines = [links.join(' \u2022 ')]
 
     if (serverUrl && serverUrl !== globalUrl) {
-      embed.setFooter({ text: 'Showing server avatar. Global avatar linked below.' })
-        .addFields({ name: 'Global Avatar', value: `[Click here](${globalUrl})`, inline: true })
+      lines.push(`**Global Avatar** \u2014 [Click here](${globalUrl})`)
+      lines.push('*Showing server avatar below.*')
     }
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u{1f5bc}\ufe0f ${target.tag}'s Avatar`, lines, {
+      image: serverUrl ?? globalUrl
+    }))
   }
 }

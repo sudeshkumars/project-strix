@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const { updateConfig }         = require('../../../shared/cache')
-const { success, error, info } = require('../../../shared/embed')
+const { updateConfig }                             = require('../../../shared/cache')
+const { successCard, errorCard, infoCard }         = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -12,58 +12,17 @@ module.exports = {
     .setName('config')
     .setDescription('Server configuration')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addSubcommand(s => s
-      .setName('prefix')
-      .setDescription('Set the bot prefix')
-      .addStringOption(o => o.setName('prefix').setDescription('New prefix').setRequired(true).setMaxLength(5)))
-    .addSubcommand(s => s
-      .setName('modrole')
-      .setDescription('Add/remove a mod role')
-      .addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true))
-      .addBooleanOption(o => o.setName('remove').setDescription('Remove instead').setRequired(false)))
-    .addSubcommand(s => s
-      .setName('adminrole')
-      .setDescription('Add/remove an admin role')
-      .addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true))
-      .addBooleanOption(o => o.setName('remove').setDescription('Remove instead').setRequired(false)))
-    .addSubcommand(s => s
-      .setName('logchannel')
-      .setDescription('Set the log channel')
-      .addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
-    .addSubcommand(s => s
-      .setName('modchannel')
-      .setDescription('Set the mod channel')
-      .addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
-    .addSubcommand(s => s
-      .setName('casechannel')
-      .setDescription('Set the case log channel')
-      .addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
-    .addSubcommand(s => s
-      .setName('suggestions')
-      .setDescription('Set the suggestions channel')
-      .addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
-    .addSubcommand(s => s
-      .setName('xp')
-      .setDescription('Configure XP settings')
-      .addIntegerOption(o => o.setName('min').setDescription('Min XP per message').setMinValue(1).setMaxValue(100).setRequired(false))
-      .addIntegerOption(o => o.setName('max').setDescription('Max XP per message').setMinValue(1).setMaxValue(100).setRequired(false))
-      .addIntegerOption(o => o.setName('cooldown').setDescription('XP cooldown seconds').setMinValue(10).setMaxValue(3600).setRequired(false))
-      .addChannelOption(o => o.setName('levelup_channel').setDescription('Level-up channel').setRequired(false)))
-    .addSubcommand(s => s
-      .setName('warnings')
-      .setDescription('Configure warning settings')
-      .addIntegerOption(o => o.setName('threshold').setDescription('Warn point threshold').setMinValue(1).setRequired(false))
-      .addIntegerOption(o => o.setName('decay_days').setDescription('Warn decay days').setMinValue(1).setRequired(false))
-      .addBooleanOption(o => o.setName('dm_on_action').setDescription('DM users on mod action').setRequired(false)))
-    .addSubcommand(s => s
-      .setName('tickets')
-      .setDescription('Configure ticket settings')
-      .addChannelOption(o => o.setName('category').setDescription('Ticket category channel').setRequired(false))
-      .addRoleOption(o => o.setName('support_role').setDescription('Support role').setRequired(false))
-      .addIntegerOption(o => o.setName('auto_close_hours').setDescription('Auto-close idle hours (0=off)').setMinValue(0).setRequired(false)))
-    .addSubcommand(s => s
-      .setName('view')
-      .setDescription('View current config')),
+    .addSubcommand(s => s.setName('prefix').setDescription('Set the bot prefix').addStringOption(o => o.setName('prefix').setDescription('New prefix').setRequired(true).setMaxLength(5)))
+    .addSubcommand(s => s.setName('modrole').setDescription('Add/remove a mod role').addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true)).addBooleanOption(o => o.setName('remove').setDescription('Remove instead').setRequired(false)))
+    .addSubcommand(s => s.setName('adminrole').setDescription('Add/remove an admin role').addRoleOption(o => o.setName('role').setDescription('Role').setRequired(true)).addBooleanOption(o => o.setName('remove').setDescription('Remove instead').setRequired(false)))
+    .addSubcommand(s => s.setName('logchannel').setDescription('Set the log channel').addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
+    .addSubcommand(s => s.setName('modchannel').setDescription('Set the mod channel').addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
+    .addSubcommand(s => s.setName('casechannel').setDescription('Set the case log channel').addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
+    .addSubcommand(s => s.setName('suggestions').setDescription('Set the suggestions channel').addChannelOption(o => o.setName('channel').setDescription('Channel').setRequired(true)))
+    .addSubcommand(s => s.setName('xp').setDescription('Configure XP settings').addIntegerOption(o => o.setName('min').setDescription('Min XP per message').setMinValue(1).setMaxValue(100).setRequired(false)).addIntegerOption(o => o.setName('max').setDescription('Max XP per message').setMinValue(1).setMaxValue(100).setRequired(false)).addIntegerOption(o => o.setName('cooldown').setDescription('XP cooldown seconds').setMinValue(10).setMaxValue(3600).setRequired(false)).addChannelOption(o => o.setName('levelup_channel').setDescription('Level-up channel').setRequired(false)))
+    .addSubcommand(s => s.setName('warnings').setDescription('Configure warning settings').addIntegerOption(o => o.setName('threshold').setDescription('Warn point threshold').setMinValue(1).setRequired(false)).addIntegerOption(o => o.setName('decay_days').setDescription('Warn decay days').setMinValue(1).setRequired(false)).addBooleanOption(o => o.setName('dm_on_action').setDescription('DM users on mod action').setRequired(false)))
+    .addSubcommand(s => s.setName('tickets').setDescription('Configure ticket settings').addChannelOption(o => o.setName('category').setDescription('Ticket category channel').setRequired(false)).addRoleOption(o => o.setName('support_role').setDescription('Support role').setRequired(false)).addIntegerOption(o => o.setName('auto_close_hours').setDescription('Auto-close idle hours (0=off)').setMinValue(0).setRequired(false)))
+    .addSubcommand(s => s.setName('view').setDescription('View current config')),
 
   async execute (client, interaction) {
     await interaction.deferReply({ ephemeral: true })
@@ -75,7 +34,7 @@ module.exports = {
     if (sub === 'prefix') {
       const prefix = interaction.options.getString('prefix')
       updateConfig(client, guildId, { prefix }, { prefix })
-      return interaction.editReply({ embeds: [success('Prefix Updated', `Bot prefix set to \`${prefix}\`.`)] })
+      return interaction.editReply(successCard('Prefix Updated', [`Bot prefix set to \`${prefix}\`.`]))
     }
 
     if (sub === 'modrole' || sub === 'adminrole') {
@@ -88,12 +47,12 @@ module.exports = {
       if (remove) {
         const updated = arr.filter(r => r !== role.id)
         updateConfig(client, guildId, { [field]: JSON.stringify(updated) }, { [field]: updated })
-        return interaction.editReply({ embeds: [success('Role Removed', `${role} removed from ${label} roles.`)] })
+        return interaction.editReply(successCard('Role Removed', [`${role} removed from ${label} roles.`]))
       }
 
       if (!arr.includes(role.id)) arr.push(role.id)
       updateConfig(client, guildId, { [field]: JSON.stringify(arr) }, { [field]: arr })
-      return interaction.editReply({ embeds: [success('Role Added', `${role} added to ${label} roles.`)] })
+      return interaction.editReply(successCard('Role Added', [`${role} added to ${label} roles.`]))
     }
 
     const channelSubs = {
@@ -107,7 +66,7 @@ module.exports = {
       const ch = interaction.options.getChannel('channel')
       const { field, label } = channelSubs[sub]
       updateConfig(client, guildId, { [field]: ch.id }, { [field]: ch.id })
-      return interaction.editReply({ embeds: [success(`${label} Set`, `${label} set to ${ch}.`)] })
+      return interaction.editReply(successCard(`${label} Set`, [`${label} set to ${ch}.`]))
     }
 
     if (sub === 'xp') {
@@ -121,9 +80,9 @@ module.exports = {
       if (cd  !== null) fields.xp_cooldown     = cd
       if (lch !== null) fields.levelup_channel = lch.id
 
-      if (!Object.keys(fields).length) return interaction.editReply({ embeds: [error('Nothing changed', 'Provide at least one value.')] })
+      if (!Object.keys(fields).length) return interaction.editReply(errorCard('Nothing changed', ['Provide at least one value.']))
       updateConfig(client, guildId, fields, fields)
-      return interaction.editReply({ embeds: [success('XP Config Updated', Object.entries(fields).map(([k, v]) => `**${k}:** \`${v}\``).join('\n'))] })
+      return interaction.editReply(successCard('XP Config Updated', Object.entries(fields).map(([k, v]) => `**${k}** \u2014 \`${v}\``)))
     }
 
     if (sub === 'warnings') {
@@ -135,9 +94,9 @@ module.exports = {
       if (decayDays  !== null) fields.warn_decay_days = decayDays
       if (dmOnAction !== null) fields.dm_on_action    = dmOnAction ? 1 : 0
 
-      if (!Object.keys(fields).length) return interaction.editReply({ embeds: [error('Nothing changed', 'Provide at least one value.')] })
+      if (!Object.keys(fields).length) return interaction.editReply(errorCard('Nothing changed', ['Provide at least one value.']))
       updateConfig(client, guildId, fields, fields)
-      return interaction.editReply({ embeds: [success('Warning Config Updated', Object.entries(fields).map(([k, v]) => `**${k}:** \`${v}\``).join('\n'))] })
+      return interaction.editReply(successCard('Warning Config Updated', Object.entries(fields).map(([k, v]) => `**${k}** \u2014 \`${v}\``)))
     }
 
     if (sub === 'tickets') {
@@ -149,30 +108,29 @@ module.exports = {
       if (supRole)          fields.ticket_support_role = supRole.id
       if (autoClose !== null) fields.ticket_auto_close = autoClose
 
-      if (!Object.keys(fields).length) return interaction.editReply({ embeds: [error('Nothing changed', 'Provide at least one value.')] })
+      if (!Object.keys(fields).length) return interaction.editReply(errorCard('Nothing changed', ['Provide at least one value.']))
       updateConfig(client, guildId, fields, fields)
-      return interaction.editReply({ embeds: [success('Ticket Config Updated', '✅ Done.')] })
+      return interaction.editReply(successCard('Ticket Config Updated', ['\u2705 Done.']))
     }
 
     if (sub === 'view') {
       const modRoles   = safeParseArray(config?.mod_roles)
       const adminRoles = safeParseArray(config?.admin_roles)
 
-      const embed = info('⚙️ Server Config', null)
-        .addFields(
-          { name: 'Prefix',         value: config?.prefix ?? '!',   inline: true },
-          { name: 'Log Channel',    value: config?.log_channel    ? `<#${config.log_channel}>`    : 'Not set', inline: true },
-          { name: 'Mod Channel',    value: config?.mod_channel    ? `<#${config.mod_channel}>`    : 'Not set', inline: true },
-          { name: 'Case Channel',   value: config?.case_channel   ? `<#${config.case_channel}>`   : 'Not set', inline: true },
-          { name: 'Welcome Ch',     value: config?.welcome_channel ? `<#${config.welcome_channel}>` : 'Not set', inline: true },
-          { name: 'Suggestions',    value: config?.suggestions_channel ? `<#${config.suggestions_channel}>` : 'Not set', inline: true },
-          { name: 'Mod Roles',      value: modRoles.length   ? modRoles.map(r => `<@&${r}>`).join(', ')   : 'None', inline: false },
-          { name: 'Admin Roles',    value: adminRoles.length ? adminRoles.map(r => `<@&${r}>`).join(', ') : 'None', inline: false },
-          { name: 'XP Settings',    value: `Min: ${config?.xp_min ?? 15} | Max: ${config?.xp_max ?? 25} | Cooldown: ${config?.xp_cooldown ?? 60}s`, inline: false },
-          { name: 'Warn Threshold', value: `${config?.warn_threshold ?? 3} pts | Decay: ${config?.warn_decay_days ?? 30}d`, inline: true },
-          { name: 'DM on action',   value: config?.dm_on_action ? 'Yes' : 'No', inline: true }
-        )
-      return interaction.editReply({ embeds: [embed] })
+      const lines = [
+        `**Prefix** \u2014 ${config?.prefix ?? '!'}`,
+        `**Log Channel** \u2014 ${config?.log_channel ? `<#${config.log_channel}>` : 'Not set'}`,
+        `**Mod Channel** \u2014 ${config?.mod_channel ? `<#${config.mod_channel}>` : 'Not set'}`,
+        `**Case Channel** \u2014 ${config?.case_channel ? `<#${config.case_channel}>` : 'Not set'}`,
+        `**Welcome Ch** \u2014 ${config?.welcome_channel ? `<#${config.welcome_channel}>` : 'Not set'}`,
+        `**Suggestions** \u2014 ${config?.suggestions_channel ? `<#${config.suggestions_channel}>` : 'Not set'}`,
+        `**Mod Roles** \u2014 ${modRoles.length ? modRoles.map(r => `<@&${r}>`).join(', ') : 'None'}`,
+        `**Admin Roles** \u2014 ${adminRoles.length ? adminRoles.map(r => `<@&${r}>`).join(', ') : 'None'}`,
+        `**XP Settings** \u2014 Min: ${config?.xp_min ?? 15} | Max: ${config?.xp_max ?? 25} | Cooldown: ${config?.xp_cooldown ?? 60}s`,
+        `**Warn Threshold** \u2014 ${config?.warn_threshold ?? 3} pts | Decay: ${config?.warn_decay_days ?? 30}d`,
+        `**DM on action** \u2014 ${config?.dm_on_action ? 'Yes' : 'No'}`
+      ]
+      return interaction.editReply(infoCard('\u2699\ufe0f Server Config', lines))
     }
   }
 }

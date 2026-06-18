@@ -1,7 +1,7 @@
 'use strict'
 
-const { EmbedBuilder } = require('discord.js')
-const { COLORS } = require('../../../shared/embed')
+const { MessageFlags } = require('discord.js')
+const { buildCard }    = require('../../../shared/components')
 const path = require('path')
 
 module.exports = {
@@ -12,9 +12,9 @@ module.exports = {
 
     const category = interaction.values[0]
     const ICONS = {
-      mod: '🔨', automod: '🛡️', tickets: '🎫', roles: '🎭',
-      levels: '⭐', community: '👥', tags: '🏷️', scheduler: '🕐',
-      config: '⚙️', utility: '🔧', unique: '✨', owner: '👑', misc: '📦'
+      mod: '\u{1f528}', automod: '\u{1f6e1}\ufe0f', tickets: '\u{1f3ab}', roles: '\u{1f3ad}',
+      levels: '\u2b50', community: '\u{1f465}', tags: '\u{1f3f7}\ufe0f', scheduler: '\u{1f550}',
+      config: '\u2699\ufe0f', utility: '\u{1f527}', unique: '\u2728', owner: '\u{1f451}', misc: '\u{1f4e6}'
     }
 
     const cmds = [...client.commands.values()].filter(cmd => {
@@ -29,18 +29,20 @@ module.exports = {
     })
 
     if (!cmds.length) {
-      return interaction.editReply({ content: `No commands found in category \`${category}\`.` })
+      const card = buildCard({ accent: 'info', title: 'No Commands', lines: [`No commands found in category \`${category}\`.`] })
+      return interaction.editReply({ components: [card], flags: MessageFlags.IsComponentsV2 })
     }
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.info)
-      .setTitle(`${ICONS[category] ?? '📦'} ${capitalise(category)} Commands`)
-      .setDescription(
-        cmds.map(c => `**\`/${c.data.name}\`** — ${c.data.description}`).join('\n')
-      )
-      .setFooter({ text: `${cmds.length} command${cmds.length !== 1 ? 's' : ''}` })
+    const lines = cmds.map(c => `**\`/${c.data.name}\`** \u2014 ${c.data.description}`)
 
-    await interaction.editReply({ embeds: [embed] })
+    const card = buildCard({
+      accent: 'info',
+      title: `${ICONS[category] ?? '\u{1f4e6}'} ${capitalise(category)} Commands`,
+      lines,
+      subtext: `${cmds.length} command${cmds.length !== 1 ? 's' : ''}`
+    })
+
+    await interaction.editReply({ components: [card], flags: MessageFlags.IsComponentsV2 })
   }
 }
 

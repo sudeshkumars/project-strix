@@ -32,10 +32,7 @@ async function checkHighlights (client, message) {
     if (!member) continue
 
     // Don't notify if user can't see the channel
-    if (!message.channel.permissionsFor(member)?.has(8n)) {
-      const perms = message.channel.permissionsFor(member)
-      if (!perms?.has('ViewChannel')) continue
-    }
+    if (!message.channel.permissionsFor(member)?.has('ViewChannel')) continue
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.info)

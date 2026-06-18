@@ -1,7 +1,7 @@
 'use strict'
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js')
-const { COLORS } = require('../../../shared/embed')
+const { SlashCommandBuilder } = require('discord.js')
+const { warnCard, errorCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -20,22 +20,17 @@ module.exports = {
     const snipe   = client.snipeCache?.get(channel.id)
 
     if (!snipe) {
-      return interaction.editReply({ content: '🔍 No recently deleted messages in that channel.' })
+      return interaction.editReply(errorCard('No Snipe', ['\u{1f50d} No recently deleted messages in that channel.']))
     }
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.warn)
-      .setAuthor({
-        name:    snipe.author.tag,
-        iconURL: snipe.author.displayAvatarURL({ size: 64 })
-      })
-      .setDescription(snipe.content?.slice(0, 2000) || '*(no text content)*')
-      .addFields({ name: 'Channel', value: `<#${channel.id}>`, inline: true })
-      .setFooter({ text: `Deleted` })
-      .setTimestamp(snipe.deletedAt)
+    const lines = [
+      `**Author** \u2014 ${snipe.author.tag}`,
+      `**Channel** \u2014 <#${channel.id}>`,
+      `**Content** \u2014 ${snipe.content?.slice(0, 1500) || '*(no text content)*'}`
+    ]
 
-    if (snipe.imageUrl) embed.setImage(snipe.imageUrl)
-
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(warnCard('\u{1f5d1}\ufe0f Deleted Message', lines, {
+      image: snipe.imageUrl || undefined
+    }))
   }
 }

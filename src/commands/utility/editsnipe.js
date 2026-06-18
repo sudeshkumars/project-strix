@@ -1,7 +1,7 @@
 'use strict'
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js')
-const { COLORS } = require('../../../shared/embed')
+const { SlashCommandBuilder } = require('discord.js')
+const { infoCard, errorCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'user',
@@ -20,23 +20,19 @@ module.exports = {
     const snipe   = client.editCache?.get(channel.id)
 
     if (!snipe) {
-      return interaction.editReply({ content: '🔍 No recently edited messages in that channel.' })
+      return interaction.editReply(errorCard('No Snipe', ['\u{1f50d} No recently edited messages in that channel.']))
     }
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.info)
-      .setAuthor({
-        name:    snipe.author.tag,
-        iconURL: snipe.author.displayAvatarURL({ size: 64 })
-      })
-      .addFields(
-        { name: 'Before', value: snipe.before?.slice(0, 1024) || '*(empty)*', inline: false },
-        { name: 'After',  value: snipe.after?.slice(0, 1024)  || '*(empty)*', inline: false },
-        { name: 'Channel', value: `<#${channel.id}>`, inline: true }
-      )
-      .setFooter({ text: 'Edited' })
-      .setTimestamp(snipe.editedAt)
+    const lines = [
+      `**Author** \u2014 ${snipe.author.tag}`,
+      `**Channel** \u2014 <#${channel.id}>`
+    ]
 
-    await interaction.editReply({ embeds: [embed] })
+    const blocks = [
+      { heading: 'Before', content: snipe.before?.slice(0, 1024) || '*(empty)*' },
+      { heading: 'After', content: snipe.after?.slice(0, 1024) || '*(empty)*' }
+    ]
+
+    await interaction.editReply(infoCard('\u270f\ufe0f Edited Message', lines, { blocks }))
   }
 }

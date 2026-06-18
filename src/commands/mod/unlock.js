@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js')
-const { success } = require('../../../shared/embed')
-const { safeSend } = require('../../../shared/utils')
+const { successCard, errorCard } = require('../../../shared/components')
+const { safeSend }               = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'mod',
@@ -11,7 +11,7 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('unlock')
-    .setDescription('Unlock a channel — restore @everyone send permissions')
+    .setDescription('Unlock a channel \u2014 restore @everyone send permissions')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .addChannelOption(o =>
       o.setName('channel')
@@ -30,34 +30,27 @@ module.exports = {
 
     const me = guild.members.me
     if (!channel.permissionsFor(me).has(PermissionFlagsBits.ManageChannels)) {
-      return interaction.editReply({ content: '❌ I don\'t have permission to manage that channel.' })
+      return interaction.editReply(errorCard('No Permission', ['I don\'t have permission to manage that channel.']))
     }
 
     const everyoneRole = guild.roles.everyone
     const existing     = channel.permissionOverwrites.cache.get(everyoneRole.id)
 
-    // If not locked, nothing to do
     if (!existing?.deny.has(PermissionFlagsBits.SendMessages)) {
-      return interaction.editReply({ content: '🔓 That channel is not locked.' })
+      return interaction.editReply(successCard('Not Locked', ['\u{1f513} That channel is not locked.']))
     }
 
     try {
       await channel.permissionOverwrites.edit(everyoneRole, {
-        SendMessages:            null,  // null = inherit (remove override)
+        SendMessages:            null,
         SendMessagesInThreads:   null
       }, { reason: `[Stryx Unlock] ${reason} | Mod: ${interaction.user.tag}` })
     } catch (e) {
-      return interaction.editReply({ content: `❌ Failed to unlock channel: ${e.message}` })
+      return interaction.editReply(errorCard('Failed', [`Could not unlock channel: ${e.message}`]))
     }
 
-    await safeSend(channel, {
-      embeds: [
-        success('Channel Unlocked', `🔓 This channel has been unlocked by ${interaction.user}.`)
-      ]
-    })
+    await safeSend(channel, successCard('Channel Unlocked', [`\u{1f513} This channel has been unlocked by ${interaction.user}.`]))
 
-    await interaction.editReply({
-      embeds: [success('Unlocked', `🔓 ${channel} has been unlocked.`)]
-    })
+    await interaction.editReply(successCard('Unlocked', [`\u{1f513} ${channel} has been unlocked.`]))
   }
 }

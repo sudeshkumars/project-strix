@@ -1,8 +1,8 @@
 'use strict'
 
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js')
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db             = require('../../../shared/db')
-const { COLORS }     = require('../../../shared/embed')
+const { infoCard, errorCard } = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'mod',
@@ -24,22 +24,19 @@ module.exports = {
     const guild  = interaction.guild
 
     if (target.id === interaction.user.id) {
-      return interaction.editReply({ content: '❌ You cannot add a note to yourself.' })
+      return interaction.editReply(errorCard('Invalid', ['You cannot add a note to yourself.']))
     }
 
     const noteId = db.createNote(guild.id, target.id, interaction.user.id, text)
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.info)
-      .setTitle(`📝 Note Added — #${noteId}`)
-      .addFields(
-        { name: 'User',  value: `${target.tag} (\`${target.id}\`)`, inline: true },
-        { name: 'Mod',   value: `${interaction.user.tag}`,           inline: true },
-        { name: 'Note',  value: text,                                inline: false }
-      )
-      .setThumbnail(target.displayAvatarURL({ size: 64 }))
-      .setTimestamp()
+    const lines = [
+      `**User** \u2014 ${target.tag} (\`${target.id}\`)`,
+      `**Mod** \u2014 ${interaction.user.tag}`,
+      `**Note** \u2014 ${text}`
+    ]
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u{1f4dd} Note Added \u2014 #${noteId}`, lines, {
+      thumbnail: target.displayAvatarURL({ size: 64 })
+    }))
   }
 }

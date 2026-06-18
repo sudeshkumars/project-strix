@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder } = require('discord.js')
 const db                      = require('../../../shared/db')
-const { info }                = require('../../../shared/embed')
+const { infoCard }            = require('../../../shared/components')
 const { calcLevel, fullTime, relativeTime } = require('../../../shared/utils')
 const { resolveTier, tierName }            = require('../../../shared/permissions')
 
@@ -48,28 +48,28 @@ module.exports = {
           .join(', ') || 'None'
       : 'Not in server'
 
-    const embed = info(`👤 ${target.tag}`, null)
-      .setThumbnail(target.displayAvatarURL({ size: 256 }))
-      .addFields(
-        { name: 'ID',          value: target.id,                         inline: true  },
-        { name: 'Bot',         value: target.bot ? 'Yes' : 'No',         inline: true  },
-        { name: 'Tier',        value: tier,                              inline: true  },
-        { name: 'Created',     value: fullTime(Math.floor(target.createdTimestamp / 1000)), inline: true },
-        { name: 'Joined',      value: member ? fullTime(Math.floor(member.joinedTimestamp / 1000)) : 'N/A', inline: true },
-        { name: 'Nickname',    value: member?.nickname ?? 'None',        inline: true  },
-        { name: 'XP / Level',  value: row ? `${row.xp} XP | Level ${level}` : 'No data', inline: true },
-        { name: 'Rank',        value: rank ? `#${rank.rank}` : 'N/A',   inline: true  },
-        { name: 'Rep',         value: row ? String(row.rep) : '0',       inline: true  },
-        { name: 'Cases',       value: String(caseCount),                 inline: true  },
-        { name: 'Warn Points', value: String(warnPts),                   inline: true  },
-        { name: 'Messages',    value: row ? String(row.messages) : '0',  inline: true  },
-        { name: 'Roles',       value: roles,                             inline: false }
-      )
+    const lines = [
+      `**ID** \u2014 ${target.id}`,
+      `**Bot** \u2014 ${target.bot ? 'Yes' : 'No'}`,
+      `**Tier** \u2014 ${tier}`,
+      `**Created** \u2014 ${fullTime(Math.floor(target.createdTimestamp / 1000))}`,
+      `**Joined** \u2014 ${member ? fullTime(Math.floor(member.joinedTimestamp / 1000)) : 'N/A'}`,
+      `**Nickname** \u2014 ${member?.nickname ?? 'None'}`,
+      `**XP / Level** \u2014 ${row ? `${row.xp} XP | Level ${level}` : 'No data'}`,
+      `**Rank** \u2014 ${rank ? `#${rank.rank}` : 'N/A'}`,
+      `**Rep** \u2014 ${row ? String(row.rep) : '0'}`,
+      `**Cases** \u2014 ${caseCount}`,
+      `**Warn Points** \u2014 ${warnPts}`,
+      `**Messages** \u2014 ${row ? String(row.messages) : '0'}`,
+      `**Roles** \u2014 ${roles}`
+    ]
 
     if (member?.premiumSince) {
-      embed.addFields({ name: 'Boosting since', value: relativeTime(Math.floor(member.premiumSinceTimestamp / 1000)), inline: true })
+      lines.push(`**Boosting since** \u2014 ${relativeTime(Math.floor(member.premiumSinceTimestamp / 1000))}`)
     }
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u{1f464} ${target.tag}`, lines, {
+      thumbnail: target.displayAvatarURL({ size: 256 })
+    }))
   }
 }

@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
-const { updateConfig }         = require('../../../shared/cache')
-const { success, error, info } = require('../../../shared/embed')
+const { updateConfig }                             = require('../../../shared/cache')
+const { successCard, errorCard, infoCard }         = require('../../../shared/components')
 
 module.exports = {
   permLevel: 'admin',
@@ -47,37 +47,36 @@ module.exports = {
       const ch = interaction.options.getChannel('channel')
       if (!bl.channels.includes(ch.id)) bl.channels.push(ch.id)
       saveBlacklist(client, guildId, bl)
-      return interaction.editReply({ embeds: [success('Channel Blacklisted', `${ch} will no longer grant XP.`)] })
+      return interaction.editReply(successCard('Channel Blacklisted', [`${ch} will no longer grant XP.`]))
     }
 
     if (sub === 'removechannel') {
       const ch = interaction.options.getChannel('channel')
       bl.channels = bl.channels.filter(id => id !== ch.id)
       saveBlacklist(client, guildId, bl)
-      return interaction.editReply({ embeds: [success('Channel Unblocked', `${ch} will now grant XP.`)] })
+      return interaction.editReply(successCard('Channel Unblocked', [`${ch} will now grant XP.`]))
     }
 
     if (sub === 'addrole') {
       const role = interaction.options.getRole('role')
       if (!bl.roles.includes(role.id)) bl.roles.push(role.id)
       saveBlacklist(client, guildId, bl)
-      return interaction.editReply({ embeds: [success('Role Blacklisted', `${role} will no longer earn XP.`)] })
+      return interaction.editReply(successCard('Role Blacklisted', [`${role} will no longer earn XP.`]))
     }
 
     if (sub === 'removerole') {
       const role = interaction.options.getRole('role')
       bl.roles = bl.roles.filter(id => id !== role.id)
       saveBlacklist(client, guildId, bl)
-      return interaction.editReply({ embeds: [success('Role Unblocked', `${role} will now earn XP.`)] })
+      return interaction.editReply(successCard('Role Unblocked', [`${role} will now earn XP.`]))
     }
 
     if (sub === 'list') {
-      const embed = info('🚫 XP Blacklist', null)
-        .addFields(
-          { name: 'Channels', value: bl.channels.length ? bl.channels.map(id => `<#${id}>`).join(', ') : 'None', inline: false },
-          { name: 'Roles',    value: bl.roles.length    ? bl.roles.map(id => `<@&${id}>`).join(', ')  : 'None', inline: false }
-        )
-      return interaction.editReply({ embeds: [embed] })
+      const lines = [
+        `**Channels** \u2014 ${bl.channels.length ? bl.channels.map(id => `<#${id}>`).join(', ') : 'None'}`,
+        `**Roles** \u2014 ${bl.roles.length ? bl.roles.map(id => `<@&${id}>`).join(', ') : 'None'}`
+      ]
+      return interaction.editReply(infoCard('\u{1f6ab} XP Blacklist', lines))
     }
   }
 }

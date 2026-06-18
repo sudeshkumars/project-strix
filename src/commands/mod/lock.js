@@ -1,8 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js')
-const { success, error } = require('../../../shared/embed')
-const { safeSend }       = require('../../../shared/utils')
+const { successCard, errorCard } = require('../../../shared/components')
+const { safeSend }               = require('../../../shared/utils')
 
 module.exports = {
   permLevel: 'mod',
@@ -11,7 +11,7 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('lock')
-    .setDescription('Lock a channel — deny @everyone from sending messages')
+    .setDescription('Lock a channel \u2014 deny @everyone from sending messages')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .addChannelOption(o =>
       o.setName('channel')
@@ -28,19 +28,16 @@ module.exports = {
     const reason  = interaction.options.getString('reason') ?? 'No reason provided'
     const guild   = interaction.guild
 
-    // Check bot perms on that channel
     const me = guild.members.me
     if (!channel.permissionsFor(me).has(PermissionFlagsBits.ManageChannels)) {
-      return interaction.editReply({ content: '❌ I don\'t have permission to manage that channel.' })
+      return interaction.editReply(errorCard('No Permission', ['I don\'t have permission to manage that channel.']))
     }
 
-    // Get current @everyone override
     const everyoneRole = guild.roles.everyone
     const existing     = channel.permissionOverwrites.cache.get(everyoneRole.id)
 
-    // Check already locked
     if (existing?.deny.has(PermissionFlagsBits.SendMessages)) {
-      return interaction.editReply({ content: '🔒 That channel is already locked.' })
+      return interaction.editReply(successCard('Already Locked', ['\u{1f512} That channel is already locked.']))
     }
 
     try {
@@ -49,17 +46,11 @@ module.exports = {
         SendMessagesInThreads: false
       }, { reason: `[Stryx Lock] ${reason} | Mod: ${interaction.user.tag}` })
     } catch (e) {
-      return interaction.editReply({ content: `❌ Failed to lock channel: ${e.message}` })
+      return interaction.editReply(errorCard('Failed', [`Could not lock channel: ${e.message}`]))
     }
 
-    await safeSend(channel, {
-      embeds: [
-        success('Channel Locked', `🔒 This channel has been locked by ${interaction.user}.\n**Reason:** ${reason}`)
-      ]
-    })
+    await safeSend(channel, successCard('Channel Locked', [`\u{1f512} This channel has been locked by ${interaction.user}.`, `**Reason:** ${reason}`]))
 
-    await interaction.editReply({
-      embeds: [success('Locked', `🔒 ${channel} has been locked.\n**Reason:** ${reason}`)]
-    })
+    await interaction.editReply(successCard('Locked', [`\u{1f512} ${channel} has been locked.`, `**Reason:** ${reason}`]))
   }
 }

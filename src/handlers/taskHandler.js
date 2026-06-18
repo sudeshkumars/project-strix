@@ -25,9 +25,9 @@ module.exports = function taskHandler (client) {
       continue
     }
 
-    cron.schedule(mod.interval, () => {
+    cron.schedule(mod.interval, async () => {
       try {
-        mod.execute(client)
+        await mod.execute(client)
       } catch (e) {
         logger.error(`taskHandler: error in ${file}: ${e.message}`)
       }

@@ -1,8 +1,8 @@
 'use strict'
 
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js')
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js')
 const db             = require('../../../shared/db')
-const { COLORS }     = require('../../../shared/embed')
+const { infoCard }   = require('../../../shared/components')
 const { fullTime, truncate } = require('../../../shared/utils')
 
 const PAGE_SIZE = 5
@@ -29,20 +29,14 @@ module.exports = {
     const notes = db.getNotes(guild.id, target.id)
 
     if (!notes.length) {
-      return interaction.editReply({ content: `📝 No notes found for **${target.tag}**.` })
+      return interaction.editReply(infoCard(`\u{1f4dd} Mod Notes \u2014 ${target.tag}`, ['No notes found.']))
     }
 
     const totalPages = Math.ceil(notes.length / PAGE_SIZE)
     const safePage   = Math.min(page, totalPages)
     const slice      = notes.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.info)
-      .setTitle(`📝 Mod Notes — ${target.tag}`)
-      .setDescription(`**${notes.length}** note${notes.length !== 1 ? 's' : ''} total`)
-      .setThumbnail(target.displayAvatarURL({ size: 64 }))
-      .setFooter({ text: `Page ${safePage}/${totalPages}` })
-      .setTimestamp()
+    const lines = [`**${notes.length}** note${notes.length !== 1 ? 's' : ''} total`, '']
 
     for (const n of slice) {
       let modTag = `<@${n.mod_id}>`
@@ -50,14 +44,14 @@ module.exports = {
         const modUser = await client.users.fetch(n.mod_id)
         modTag = modUser.tag
       } catch {}
-
-      embed.addFields({
-        name:  `Note #${n.id} — ${fullTime(n.created_at)} by ${modTag}`,
-        value: truncate(n.note, 512),
-        inline: false
-      })
+      lines.push(`**Note #${n.id}** \u2014 ${fullTime(n.created_at)} by ${modTag}`)
+      lines.push(truncate(n.note, 512))
+      lines.push('')
     }
 
-    await interaction.editReply({ embeds: [embed] })
+    await interaction.editReply(infoCard(`\u{1f4dd} Mod Notes \u2014 ${target.tag}`, lines, {
+      thumbnail: target.displayAvatarURL({ size: 64 }),
+      subtext: `Page ${safePage}/${totalPages}`
+    }))
   }
 }
